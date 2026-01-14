@@ -1,31 +1,41 @@
 module.exports = {
   config: {
     name: "notify",
+    aliases: ["broadcast"],
     version: "1.0",
-    aliases: [],
     author: "dipto",
-    countDown: 5,
-    role: 3, 
-    description: "Send a message to all groups",
+    role: 3,
+    description: "Send message to all groups",
     commandCategory: "admin",
-    guide: "{pn} <message>",
+    guide: "/notify <message>",
   },
 
-  run: async function ({ api,message, args, threadsData }) {
-    const notifyMessage = args.join(" ");
-    if (!notifyMessage) {
-      return await message.reply("Please provide a message to notify all groups.");
+  run: async function ({ message, args, msg, bot }) {
+    const text = args.join(" ");
+    if (!text) {
+      return message.reply("❌ Please provide a message");
     }
 
-    const allThreads = await threadsData.getAll();
-    if (!allThreads || allThreads.length === 0) {
-      return await message.reply("No active threads to notify.");
+    // 🔐 admin check (optional)
+    const ADMIN_IDS = [msg.from.id]; // চাইলে static ID বসাও
+    if (!ADMIN_IDS.includes(msg.from.id)) {
+      return message.reply("⛔ You are not allowed to use this command");
     }
 
-    for (const thread of allThreads) {
-      await api.sendMessage(thread.threadID, notifyMessage);
+    let success = 0;
+    let failed = 0;
+
+    for (const chatId of global.chatIDs) {
+      try {
+        await bot.sendMessage(chatId, text);
+        success++;
+      } catch (e) {
+        failed++;
+      }
     }
 
-    await message.reply("Notification sent to all groups.");
+    message.reply(
+      `✅ Notify done\n\n📨 Sent: ${success}\n❌ Failed: ${failed}`
+    );
   },
 };
