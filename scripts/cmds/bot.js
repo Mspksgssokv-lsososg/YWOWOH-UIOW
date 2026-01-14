@@ -1,74 +1,45 @@
-const axios = require('axios');
+const axios = require("axios");
 
-const baseApiUrl = async () => {
-  const base = await axios.get(
-`https://raw.githubusercontent.com/Blankid018/D1PT0/main/baseApiUrl.json`,
+async function baseApiUrl() {
+  const res = await axios.get(
+    "https://noobs-api-team-url.vercel.app/N1SA9/baseApiUrl.json"
   );
-  return base.data.api;
-}; 
+  return res.data.api;
+}
 
-module.exports.config = {
+module.exports = {
+  config: {
     name: "babe",
-    aliases: ["bby", "bbe", "বট", "বেবি", "lisa"],
+    aliases: ["bby", "bbe", "baby", "lisa"],
     version: "1.0",
-    credits: "Dipto",
+    author: "Dipto",
     role: 0,
-    usePrefix: false,
     description: "Talk to baby bot",
     commandCategory: "fun",
-    guide: "baby [message]",
-    coolDowns: 5,
-    premium: false
-};
+    guide: "/babe <message>",
+  },
 
-module.exports.run = async ({ event, message, args }) =>{
-    const link = `${await baseApiUrl()}/baby`;
-    const userMessage = args.join(' ');
-    const author = event.from.id
-    if(!userMessage) return message.reply('Please provide a message')
-    try {
-        const apiUrl = `${link}?text=${encodeURIComponent(userMessage)}&senderID=${author}`;
-        const response = await axios.get(apiUrl);
-        const data = response.data.reply;
-
-      const info = await message.reply(data)
-    const infoID = info.message_id; 
-    global.functions.reply.set(infoID, {
-        commandName: this.config.name,
-       type: "reply",
-       messageID: infoID,
-       author,
-      data: reply
-    });
-           
-    } catch (error) {
-        console.error('Error:', error);
-        message.reply('Sorry, something went wrong!');
+  run: async function ({ message, args, msg }) {
+    const userMessage = args.join(" ");
+    if (!userMessage) {
+      return message.reply("Please provide a message");
     }
-};
 
-module.exports.reply = async function ({ event, message ,args, Reply }) {
-     const { data } = Reply;
-    const link = `${await baseApiUrl()}/baby`;
-     const author = event.from.id
     try {
-        const apiUrl = `${link}?text=${encodeURIComponent(userMessage)}&senderID=${author}`;
-        const response = await axios.get(apiUrl);
-        const reply = response.data.reply;
-     const info = await message.reply(reply);
-    const infoID = info.message_id; 
-    const author = event.from.id
-        
-    global.functions.reply.set(infoID, {
-        commandName: this.config.name,
-       type: "reply",
-       messageID: infoID,
-       author,
-      mesg: reply
-    });
-  
-    } catch (error) {
-        console.error('Error:', error);
-        message.reply("error 🦆")
+      const link = await baseApiUrl();
+      const senderID = msg.from.id;
+
+      const apiUrl = `${link}/baby?text=${encodeURIComponent(
+        userMessage
+      )}&senderID=${senderID}`;
+
+      const response = await axios.get(apiUrl);
+      const replyText = response.data.reply || "No response";
+
+      await message.reply(replyText);
+    } catch (err) {
+      console.error(err);
+      message.reply("❌ API Error");
     }
+  },
 };
