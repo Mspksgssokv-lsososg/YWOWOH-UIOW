@@ -22,6 +22,9 @@ global.functions = {
   onReply: new Map()
 };
 
+// ✅ COOLDOWN STORAGE
+global.cooldowns = new Map();
+
 // 📦 LOAD COMMANDS
 loadScripts(bot);
 
@@ -103,11 +106,16 @@ bot.on("message", async (msg) => {
       }
     }
 
-    // ================= COMMAND =================
-    if (!text.startsWith(prefix)) return;
+    // ================= COMMAND SYSTEM =================
+    let commandName, args;
 
-    const args = text.slice(prefix.length).trim().split(/ +/);
-    const commandName = args.shift()?.toLowerCase();
+    if (text.startsWith(prefix)) {
+      args = text.slice(prefix.length).trim().split(/ +/);
+      commandName = args.shift()?.toLowerCase();
+    } else {
+      args = text.trim().split(/ +/);
+      commandName = args.shift()?.toLowerCase();
+    }
 
     const command =
       global.commands.get(commandName) ||
@@ -116,6 +124,34 @@ bot.on("message", async (msg) => {
       );
 
     if (!command) return;
+
+    // ✅ usePrefix CONTROL
+    if (command.config?.usePrefix === true && !text.startsWith(prefix)) return;
+    // ❗ false / undefined → both allow
+
+    // ================= COOLDOWN SYSTEM =================
+    const cooldownTime = (command.config?.cooldown || 0) * 1000;
+
+    if (cooldownTime > 0) {
+      if (!global.cooldowns.has(commandName)) {
+        global.cooldowns.set(commandName, new Map());
+      }
+
+      const now = Date.now();
+      const timestamps = global.cooldowns.get(commandName);
+      const expirationTime = timestamps.get(userId) || 0;
+
+      if (now < expirationTime) {
+        const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
+        return message.reply(`⏳ | Please wait ${timeLeft}s before using this command again.`);
+      }
+
+      timestamps.set(userId, now + cooldownTime);
+
+      setTimeout(() => {
+        timestamps.delete(userId);
+      }, cooldownTime);
+    }
 
     // 🔒 ROLE SYSTEM
     const role = command.config?.role ?? 0;
