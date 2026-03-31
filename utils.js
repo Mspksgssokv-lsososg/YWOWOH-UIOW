@@ -70,7 +70,7 @@ function loadScripts(bot) {
     }
   }
 
-  // ===== EVENT LOAD (FIXED) =====
+  // ===== EVENT LOAD (FINAL FIX) =====
   if (!fs.existsSync(eventsPath)) {
     console.log("❌ events folder not found!");
     return;
@@ -81,22 +81,26 @@ function loadScripts(bot) {
   for (const file of eventFiles) {
     try {
       const event = require(path.join(eventsPath, file));
-      const eventName = file.replace(".js", "");
 
       if (typeof event.run !== "function") {
         console.log(`❌ Event ${file} has no run function`);
         continue;
       }
 
-      bot.on(eventName, (msg) => {
-        event.run({
-          bot,
-          event: msg
-        });
+      // সব event message এ handle হবে
+      bot.on("message", (msg) => {
+        try {
+          event.run({
+            bot,
+            event: msg
+          });
+        } catch (err) {
+          console.error(`❌ Event error (${file}):`, err);
+        }
       });
 
-      global.events.set(eventName, event);
-      console.log(`✅ Event: ${eventName}`);
+      global.events.set(file, event);
+      console.log(`✅ Event loaded: ${file}`);
     } catch (err) {
       console.error(`❌ ${file}`, err);
     }
@@ -119,23 +123,36 @@ function loadScripts(bot) {
         console.log(`♻️ Reloaded command: ${fileName}`);
       }
 
-      // ===== EVENT RELOAD (FIXED) =====
+      // ===== EVENT RELOAD (FINAL FIX) =====
       if (filePath.includes("events")) {
         const ev = require(filePath);
 
         if (typeof ev.run !== "function") return;
 
-        bot.removeAllListeners(fileName);
+        // পুরা listener reset
+        bot.removeAllListeners("message");
 
-        bot.on(fileName, (msg) => {
-          ev.run({
-            bot,
-            event: msg
+        // সব event আবার load
+        const files = fs.readdirSync(eventsPath).filter(f => f.endsWith(".js"));
+
+        for (const f of files) {
+          const e = require(path.join(eventsPath, f));
+
+          if (typeof e.run !== "function") continue;
+
+          bot.on("message", (msg) => {
+            try {
+              e.run({
+                bot,
+                event: msg
+              });
+            } catch (err) {
+              console.error(`❌ Event error (${f}):`, err);
+            }
           });
-        });
+        }
 
-        global.events.set(fileName, ev);
-        console.log(`♻️ Reloaded event: ${fileName}`);
+        console.log(`♻️ Reloaded events`);
       }
 
     } catch (err) {
