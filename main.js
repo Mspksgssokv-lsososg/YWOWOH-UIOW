@@ -1,4 +1,4 @@
-// main.js - Bot'Bee v1.0.0 complete
+// main.js - Bot'Bee full version
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
@@ -19,22 +19,28 @@ global.functions = {
     handleEvent: new Map()
 };
 
-// Users & Threads data (mock, replace with mongoose models if needed)
+// Users & Threads data (can replace with real mongoose models)
 global.usersData = new Map();
 global.threadsData = new Map();
 
-// Load commands
+// Load commands from scripts/cmds
 global.commands = new Map();
-const commandFiles = fs.readdirSync(path.join(__dirname, 'commands')).filter(f => f.endsWith('.js'));
-for (const file of commandFiles) {
-    const cmd = require(`./commands/${file}`);
-    global.commands.set(cmd.config.name, cmd);
-    if (cmd.config.aliases) {
-        cmd.config.aliases.forEach(alias => global.commands.set(alias, cmd));
+const commandsPath = path.join(__dirname, 'scripts', 'cmds');
+
+if (fs.existsSync(commandsPath)) {
+    const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
+    for (const file of commandFiles) {
+        const cmd = require(`./scripts/cmds/${file}`);
+        global.commands.set(cmd.config.name, cmd);
+        if (cmd.config.aliases) {
+            cmd.config.aliases.forEach(alias => global.commands.set(alias, cmd));
+        }
     }
+} else {
+    console.warn('⚠️ scripts/cmds folder not found. Skipping command load.');
 }
 
-// Message helper functions
+// Message helpers
 global.message = {
     reply: async ({ ctx, text }) => ctx.reply(text),
     stream: async ({ ctx, attachment, body }) => ctx.replyWithPhoto({ source: attachment, caption: body }),
@@ -45,15 +51,11 @@ global.message = {
 };
 
 // ----------------- Core Handlers -----------------
-
 async function handleCommand(event) {
     const text = event.text || '';
     const fromId = event.from.id;
 
-    // Ignore list
     if (config.ignore_list_ID.enable && config.ignore_list_ID.IDS.includes(fromId)) return;
-
-    // Whitelist ID
     if (config.white_list_ID.enable && !config.white_list_ID.IDS.includes(fromId)) return;
 
     const hasPrefix = text.startsWith(config.prefix);
@@ -89,32 +91,26 @@ async function handleCommand(event) {
 }
 
 // ----------------- Event Handlers -----------------
-
 async function onStart() {
     console.log('🚀 Bot started successfully.');
-    // Run any startup commands
     global.commands.forEach(cmd => {
         if (cmd.onStart) cmd.onStart({ message, usersData, threadsData });
     });
 }
 
 async function onChat(event) {
-    // Run all onChat events in commands
     global.commands.forEach(cmd => {
         if (cmd.onChat) cmd.onChat({ event, message, usersData, threadsData });
     });
 
-    // Handle commands
     await handleCommand(event);
 }
 
 // ----------------- AI / Reply Handling -----------------
-
 async function handleReplyEvent(event) {
     const msgId = event.reply_to_message?.message_id;
     if (!msgId) return;
 
-    // Check in reply/onReply/handleEvent
     let replyData = global.functions.reply.get(msgId)
         || global.functions.onReply.get(msgId)
         || global.functions.handleEvent.get(msgId);
@@ -134,12 +130,11 @@ async function handleReplyEvent(event) {
 }
 
 // ----------------- Start Bot -----------------
-
 async function startBot() {
     await onStart();
     console.log('🎯 Listening to messages...');
 
-    // Replace below with actual Telegram API event listener
+    // TODO: Replace this with actual Telegram client
     // Example pseudo-code:
     // telegramClient.on('message', async (event) => {
     //     await onChat(event);
@@ -148,7 +143,5 @@ async function startBot() {
 }
 
 startBot();
-
-// Graceful shutdown
 process.once('SIGINT', () => console.log('Bot stopped.'));
 process.once('SIGTERM', () => console.log('Bot stopped.'));
