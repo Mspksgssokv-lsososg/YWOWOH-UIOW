@@ -4,7 +4,6 @@ const fs = require("fs-extra");
 const chokidar = require("chokidar");
 const config = require("./config.json");
 
-// ================= EXTENSION =================
 async function getExtensionFromUrl(mediaUrl) {
   const response = await axios.get(mediaUrl, { responseType: "stream" });
   const type = response.headers["content-type"];
@@ -23,13 +22,11 @@ function getExtensionFromMimeType(mimeType) {
   return map[mimeType] || "";
 }
 
-// ================= DOWNLOAD =================
 async function downloadFile(url, downloadPath) {
   const res = await axios.get(url, { responseType: "arraybuffer" });
   fs.writeFileSync(downloadPath, Buffer.from(res.data));
 }
 
-// ================= MESSAGE =================
 function message(bot, msg) {
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
@@ -109,7 +106,6 @@ function message(bot, msg) {
   };
 }
 
-// ================= LOAD =================
 function loadScripts(bot) {
   const cmdPath = path.join(process.cwd(), "scripts", "cmds");
   const evPath = path.join(process.cwd(), "scripts", "events");
@@ -117,7 +113,6 @@ function loadScripts(bot) {
   console.log("📂 CMD PATH:", cmdPath);
   console.log("📂 EVENT PATH:", evPath);
 
-  // CHECK EXIST
   if (!fs.existsSync(cmdPath)) {
     console.log("❌ cmds folder not found!");
     return;
@@ -128,7 +123,6 @@ function loadScripts(bot) {
     return;
   }
 
-  // LOAD COMMANDS
   fs.readdirSync(cmdPath).forEach(file => {
     if (!file.endsWith(".js")) return;
 
@@ -147,7 +141,6 @@ function loadScripts(bot) {
     }
   });
 
-  // LOAD EVENTS
   fs.readdirSync(evPath).forEach(file => {
     if (!file.endsWith(".js")) return;
 
@@ -166,7 +159,6 @@ function loadScripts(bot) {
     }
   });
 
-  // HOT RELOAD
   chokidar.watch([cmdPath, evPath]).on("change", (file) => {
     try {
       delete require.cache[require.resolve(file)];

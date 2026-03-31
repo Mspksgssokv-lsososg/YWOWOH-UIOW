@@ -2,7 +2,7 @@ const express = require('express');
 const { spawn } = require('child_process');
 const app = express();
 const colors = require('colors')
-const port = 3000;
+const port = process.env.PORT || 5000;
 let botProcess;
 const config = require('./config.json');
 const User = require("./database/users");
@@ -10,20 +10,6 @@ const Thread = require("./database/threads");
 
 let users = [];
 let threads = [];
-/*
-async function loadUsersAndThreads() {
-    try {
-       const users2 = await User.getAll();
-        const threads2 = await Thread.getAll();
-        users.push(...users2.map(i => i.userId))
-    threads.push(...threads2.map(i => i.threadId))
-        
-        console.log("Users and threads data loaded.".green);
-    } catch (error) {
-        console.error('Error loading users and threads:', error);
-    }
-}
-*/
 
 
 async function onBot() {
@@ -47,7 +33,6 @@ onBot();
 
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/public/index.html');
-   // loadUsersAndThreads();
 });
 
 

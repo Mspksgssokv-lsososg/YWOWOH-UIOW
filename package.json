@@ -1,5 +1,5 @@
 {
-  "name": "Bot'Bee",
+  "name": "SIDDIK_BOT",
   "version": "1.0.0",
   "description": "A custom Telegram bot built by Dipto for various automated tasks.",
   "main": "index.js",
@@ -19,7 +19,7 @@
     "Bee",
     "bot'bee"
   ],
-  "author": "Dipto",
+  "author": "SK-SIDDIK-KHAN",
   "license": "Open License - Non-Commercial",
   "homepage": "https://github.com/dipto-008/BotBee#readme",
   "repository": {
