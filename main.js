@@ -2,6 +2,10 @@ const TelegramBot = require("node-telegram-bot-api");
 const config = require("./config.json");
 const { loadScripts, messageUtils } = require("./utils");
 
+// ✅ DATABASE CONNECT
+const usersData = require("./database/users");
+const threadsData = require("./database/threads");
+
 // INIT
 const bot = new TelegramBot(config.token, { polling: true });
 
@@ -28,15 +32,33 @@ bot.on("message", async (msg) => {
   for (let cmd of global.commands.values()) {
     try {
       if (cmd.onChat) {
-        await cmd.onChat({ bot, event: msg, message });
+        await cmd.onChat({
+          bot,
+          event: msg,
+          message,
+          usersData,
+          threadsData
+        });
       }
 
       if (cmd.handleEvent) {
-        await cmd.handleEvent({ bot, event: msg, message });
+        await cmd.handleEvent({
+          bot,
+          event: msg,
+          message,
+          usersData,
+          threadsData
+        });
       }
 
       if (cmd.noPrefix && !text.startsWith(prefix)) {
-        await cmd.noPrefix({ bot, event: msg, message });
+        await cmd.noPrefix({
+          bot,
+          event: msg,
+          message,
+          usersData,
+          threadsData
+        });
       }
 
     } catch (e) {
@@ -64,7 +86,9 @@ bot.on("message", async (msg) => {
         bot,
         event: msg,
         args,
-        message
+        message,
+        usersData,
+        threadsData
       });
     } else if (command.run) {
       await command.run({
@@ -72,14 +96,18 @@ bot.on("message", async (msg) => {
         event: msg,
         msg,
         args,
-        message
+        message,
+        usersData,
+        threadsData
       });
     } else if (command.start) {
       await command.start({
         bot,
         event: msg,
         args,
-        message
+        message,
+        usersData,
+        threadsData
       });
     }
   } catch (err) {
@@ -106,7 +134,9 @@ bot.on("message", async (msg) => {
         event: msg,
         message,
         args: msg.text?.split(" ") || [],
-        Reply: data
+        Reply: data,
+        usersData,
+        threadsData
       });
     }
   }
@@ -122,7 +152,9 @@ bot.on("message", async (msg) => {
         event: msg,
         message,
         args: msg.text?.split(" ") || [],
-        Reply: data
+        Reply: data,
+        usersData,
+        threadsData
       });
     }
   }
@@ -143,7 +175,9 @@ bot.on("callback_query", async (query) => {
         event: query,
         message,
         args: query.data.split(" "),
-        Reply: data
+        Reply: data,
+        usersData,
+        threadsData
       });
     }
   }
