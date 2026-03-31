@@ -1,11 +1,10 @@
-const User = require('../models/user');
 const fs = require('fs');
 const path = require('path');
 
-// ✅ FIXED PATH
+// FILE PATH
 const dataPath = path.join(__dirname, 'users.json');
 
-// ================= JSON SYSTEM =================
+// LOAD
 function loadJSONData() {
   try {
     if (fs.existsSync(dataPath)) {
@@ -15,16 +14,17 @@ function loadJSONData() {
       return [];
     }
   } catch (error) {
-    console.error('Error loading JSON data:', error);
+    console.error('Error loading JSON:', error);
     return [];
   }
 }
 
+// SAVE
 function saveJSONData(data) {
   try {
     fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
   } catch (error) {
-    console.error('Error saving JSON data:', error);
+    console.error('Error saving JSON:', error);
   }
 }
 
@@ -36,11 +36,11 @@ module.exports = {
   // CREATE
   async createUser(userData) {
     try {
-      const user = new User(userData);
-      await user.save();
-      return user;
+      jsonData.push(userData);
+      saveJSONData(jsonData);
+      return userData;
     } catch (error) {
-      console.error('Error creating user:', error.message);
+      console.error('Error creating user:', error);
       return null;
     }
   },
@@ -48,10 +48,9 @@ module.exports = {
   // GET USER
   async getUser(userId) {
     try {
-      const user = await User.findOne({ userId });
-      return user || null;
+      return jsonData.find(u => u.userId == userId) || null;
     } catch (error) {
-      console.error('Error getting user:', error.message);
+      console.error('Error getting user:', error);
       return null;
     }
   },
@@ -63,14 +62,18 @@ module.exports = {
   // UPDATE
   async updateUser(userId, updateData) {
     try {
-      const updatedUser = await User.findOneAndUpdate(
-        { userId },
-        updateData,
-        { new: true, runValidators: true }
-      );
-      return updatedUser || null;
+      const index = jsonData.findIndex(u => u.userId == userId);
+      if (index === -1) return null;
+
+      jsonData[index] = {
+        ...jsonData[index],
+        ...updateData
+      };
+
+      saveJSONData(jsonData);
+      return jsonData[index];
     } catch (error) {
-      console.error('Error updating user:', error.message);
+      console.error('Error updating user:', error);
       return null;
     }
   },
@@ -86,10 +89,14 @@ module.exports = {
   // DELETE
   async deleteUser(userId) {
     try {
-      const deletedUser = await User.findOneAndDelete({ userId });
-      return deletedUser || null;
+      const index = jsonData.findIndex(u => u.userId == userId);
+      if (index === -1) return null;
+
+      const deleted = jsonData.splice(index, 1);
+      saveJSONData(jsonData);
+      return deleted[0];
     } catch (error) {
-      console.error('Error deleting user:', error.message);
+      console.error('Error deleting user:', error);
       return null;
     }
   },
@@ -98,15 +105,9 @@ module.exports = {
     return this.deleteUser(userId);
   },
 
-  // GET ALL USERS 🔥 FIXED
+  // GET ALL
   async getAllUsers() {
-    try {
-      const users = await User.find({});
-      return Array.isArray(users) ? users : [];
-    } catch (error) {
-      console.error('Error getting all users:', error.message);
-      return []; // ✅ VERY IMPORTANT
-    }
+    return jsonData;
   },
 
   async getAll() {
@@ -121,7 +122,7 @@ module.exports = {
         ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
         : 'Telegram user';
     } catch (error) {
-      console.error('Error getting user name:', error.message);
+      console.error('Error getting name:', error);
       return 'Telegram user';
     }
   }
