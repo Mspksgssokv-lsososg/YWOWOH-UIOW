@@ -1,6 +1,6 @@
 {
   "owner": "NISAN EDITZ",
-  "fb_ID":"//m.me/61567840496026",
+  "fb_ID": "//m.me/61567840496026",
   "adminName": "NISAN EDITZ",
   "botName": "Lisa Baby",
   "token": "8662229890:AAE2Duasul4Lvxbk3bzQ1tgmd3f90t75YfE",
@@ -8,7 +8,7 @@
   "api": "https://www.noobs-api.rf.gd/dipto",
   "database": {
     "mongo": false,
-    "json": true,
+    "json": true
   },
   "adminBot": [
     6734899387
