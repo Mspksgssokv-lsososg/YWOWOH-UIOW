@@ -1,10 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-// FILE PATH
 const dataPath = path.join(__dirname, 'users.json');
 
-// LOAD
 function loadJSONData() {
   try {
     if (fs.existsSync(dataPath)) {
@@ -19,7 +17,6 @@ function loadJSONData() {
   }
 }
 
-// SAVE
 function saveJSONData(data) {
   try {
     fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
@@ -30,10 +27,8 @@ function saveJSONData(data) {
 
 let jsonData = loadJSONData();
 
-// ================= EXPORT =================
 module.exports = {
 
-  // CREATE
   async createUser(userData) {
     try {
       jsonData.push(userData);
@@ -45,7 +40,6 @@ module.exports = {
     }
   },
 
-  // GET USER
   async getUser(userId) {
     try {
       return jsonData.find(u => u.userId == userId) || null;
@@ -59,7 +53,6 @@ module.exports = {
     return this.getUser(userId);
   },
 
-  // UPDATE
   async updateUser(userId, updateData) {
     try {
       const index = jsonData.findIndex(u => u.userId == userId);
@@ -86,7 +79,6 @@ module.exports = {
     return this.updateUser(userId, updateData);
   },
 
-  // DELETE
   async deleteUser(userId) {
     try {
       const index = jsonData.findIndex(u => u.userId == userId);
@@ -105,7 +97,6 @@ module.exports = {
     return this.deleteUser(userId);
   },
 
-  // GET ALL
   async getAllUsers() {
     return jsonData;
   },
@@ -114,7 +105,6 @@ module.exports = {
     return this.getAllUsers();
   },
 
-  // GET NAME
   async getName(userId) {
     try {
       const user = await this.getUser(userId);

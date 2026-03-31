@@ -1,10 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 
-// FILE PATH
 const dataPath = path.join(__dirname, "threads.json");
 
-// LOAD
 function loadJSONData() {
   try {
     if (fs.existsSync(dataPath)) {
@@ -19,7 +17,6 @@ function loadJSONData() {
   }
 }
 
-// SAVE
 function saveJSONData(data) {
   try {
     fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
@@ -30,10 +27,8 @@ function saveJSONData(data) {
 
 let jsonData = loadJSONData();
 
-// ================= EXPORT =================
 module.exports = {
 
-  // CREATE
   async createThread(threadData) {
     try {
       jsonData.push(threadData);
@@ -45,7 +40,6 @@ module.exports = {
     }
   },
 
-  // GET ONE
   async getThread(threadId) {
     try {
       return jsonData.find(t => t.threadId == threadId) || null;
@@ -59,7 +53,6 @@ module.exports = {
     return this.getThread(threadId);
   },
 
-  // UPDATE
   async updateThread(threadId, updateData) {
     try {
       const index = jsonData.findIndex(t => t.threadId == threadId);
@@ -90,7 +83,6 @@ module.exports = {
     return this.updateThread(threadId, updateData);
   },
 
-  // DELETE
   async deleteThread(threadId) {
     try {
       const index = jsonData.findIndex(t => t.threadId == threadId);
@@ -109,7 +101,6 @@ module.exports = {
     return this.deleteThread(threadId);
   },
 
-  // GET ALL
   async getAllThreads() {
     return jsonData;
   },
