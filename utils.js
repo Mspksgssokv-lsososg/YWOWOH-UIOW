@@ -3,7 +3,23 @@ const axios = require("axios");
 const fs = require("fs-extra");
 const chokidar = require("chokidar");
 
-// ================= MIME =================
+// ================= STREAM FROM URL =================
+async function getStreamFromURL(url) {
+  const res = await axios.get(url, { responseType: "stream" });
+  return res.data;
+}
+
+// ================= EXTENSION =================
+async function getExtensionFromUrl(mediaUrl) {
+  try {
+    const response = await axios.get(mediaUrl, { responseType: "stream" });
+    const type = response.headers["content-type"];
+    return getExtensionFromMimeType(type) || path.extname(new URL(mediaUrl).pathname);
+  } catch {
+    return path.extname(mediaUrl);
+  }
+}
+
 function getExtensionFromMimeType(mimeType = "") {
   const map = {
     "video/mp4": ".mp4",
@@ -17,12 +33,12 @@ function getExtensionFromMimeType(mimeType = "") {
 }
 
 // ================= DOWNLOAD =================
-async function downloadFile(url, filePath) {
+async function downloadFile(url, downloadPath) {
   const res = await axios.get(url, { responseType: "arraybuffer" });
-  await fs.writeFile(filePath, res.data);
+  fs.writeFileSync(downloadPath, Buffer.from(res.data));
 }
 
-// ================= MESSAGE =================
+// ================= MESSAGE UTILS =================
 function message(bot, msg) {
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
@@ -39,47 +55,39 @@ function message(bot, msg) {
   }
 
   return {
-    send: (text, opt = {}) =>
+    send: async (text, opt = {}) =>
       bot.sendMessage(chatId, text, opt).catch(sendErr),
 
-    reply: (text, opt = {}) =>
+    reply: async (text, opt = {}) =>
       bot.sendMessage(chatId, text, {
         reply_to_message_id: messageId,
         ...opt
       }).catch(sendErr),
 
-    unsend: (id) =>
+    unsend: async (id) =>
       bot.deleteMessage(chatId, id).catch(() => {}),
 
-    // ================= STREAM FIX =================
     stream: async ({ url, caption = "" }) => {
       try {
-        // ⚡ Telegram direct URL support (BEST)
-        if (url.startsWith("http")) {
-          if (url.match(/\.(jpg|jpeg|png)$/i))
-            return bot.sendPhoto(chatId, url, { caption });
+        const ext = url.startsWith("http")
+          ? await getExtensionFromUrl(url)
+          : path.extname(url);
 
-          if (url.match(/\.(mp4)$/i))
-            return bot.sendVideo(chatId, url, { caption });
+        if ([".jpg", ".jpeg", ".png"].includes(ext))
+          return bot.sendPhoto(chatId, url, { caption });
 
-          if (url.match(/\.(mp3|wav)$/i))
-            return bot.sendAudio(chatId, url, { caption });
-        }
+        if ([".mp4"].includes(ext))
+          return bot.sendVideo(chatId, url, { caption });
 
-        // ⚠️ fallback download system
-        const file = path.join(process.cwd(), `temp_${Date.now()}`);
-        await downloadFile(url, file);
+        if ([".mp3", ".wav"].includes(ext))
+          return bot.sendAudio(chatId, url, { caption });
 
-        await bot.sendDocument(chatId, file, { caption });
-
-        await fs.remove(file);
-
+        throw new Error("Unsupported media type");
       } catch (e) {
         return sendErr(e);
       }
     },
 
-    // ================= DOWNLOAD =================
     download: async ({ url, mimeType }) => {
       try {
         const ext = getExtensionFromMimeType(mimeType) || ".tmp";
@@ -102,7 +110,7 @@ function message(bot, msg) {
       }
     },
 
-    code: (txt) =>
+    code: async (txt) =>
       bot.sendMessage(chatId, `\`\`\`js\n${txt}\n\`\`\``, {
         parse_mode: "Markdown"
       }),
@@ -110,3 +118,59 @@ function message(bot, msg) {
     err: sendErr
   };
 }
+
+// ================= LOAD =================
+function loadScripts(bot) {
+  const cmdPath = path.join(process.cwd(), "scripts", "cmds");
+  const evPath = path.join(process.cwd(), "scripts", "events");
+
+  if (!fs.existsSync(cmdPath)) return;
+  if (!fs.existsSync(evPath)) return;
+
+  fs.readdirSync(cmdPath).forEach(file => {
+    if (!file.endsWith(".js")) return;
+    const cmd = require(path.join(cmdPath, file));
+    if (!cmd.config?.name) return;
+    global.commands.set(cmd.config.name, cmd);
+  });
+
+  fs.readdirSync(evPath).forEach(file => {
+    if (!file.endsWith(".js")) return;
+    const name = path.parse(file).name;
+    const ev = require(path.join(evPath, file));
+    if (typeof ev.run !== "function") return;
+
+    const handler = (...args) => ev.run({ bot, event: args[0] });
+    bot.on(name, handler);
+    global.events.set(name, handler);
+  });
+
+  chokidar.watch([cmdPath, evPath]).on("change", (file) => {
+    delete require.cache[require.resolve(file)];
+
+    if (file.includes("cmds")) {
+      const cmd = require(file);
+      if (!cmd.config?.name) return;
+      global.commands.set(cmd.config.name, cmd);
+    }
+
+    if (file.includes("events")) {
+      const name = path.parse(file).name;
+      if (global.events.has(name)) {
+        bot.removeListener(name, global.events.get(name));
+      }
+      const ev = require(file);
+      if (typeof ev.run !== "function") return;
+
+      const handler = (...args) => ev.run({ bot, event: args[0] });
+      bot.on(name, handler);
+      global.events.set(name, handler);
+    }
+  });
+}
+
+module.exports = {
+  messageUtils: message,
+  loadScripts,
+  getStreamFromURL 
+};
