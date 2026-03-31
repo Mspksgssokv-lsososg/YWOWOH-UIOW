@@ -13,6 +13,7 @@ module.exports.onChat = async ({ bot, event }) => {
   const text = event.text?.trim() || "";
   const prefix = global.config.prefix;
 
+  // শুধু prefix দিলে run
   if (text !== prefix) return;
 
   try {
@@ -20,18 +21,14 @@ module.exports.onChat = async ({ bot, event }) => {
       "🌸 আল্লাহর রহমত থেকে নিরাশ হয়ো না 🤲",
       "🖤 ইসলাম অহংকার না, শুকরিয়া শেখায়",
       "🌼 মৃত্যু নিশ্চিত, সময় অনিশ্চিত",
-      "💗 Alhamdulillah for everything",
-      "🤲 আল্লাহ সব দেখেন, ধৈর্য ধরো",
-      "🕋 নামাজ জীবন বদলে দেয়"
+      "💗 Alhamdulillah for everything"
     ];
 
     const links = [
       "https://i.postimg.cc/7LdGnyjQ/images-31.jpg",
       "https://i.postimg.cc/65c81ZDZ/images-30.jpg",
       "https://i.postimg.cc/Y0wvTzr6/images-29.jpg",
-      "https://i.postimg.cc/1Rpnw2BJ/images-28.jpg",
-      "https://i.postimg.cc/mgrPxDs5/images-27.jpg",
-      "https://i.postimg.cc/yxXDK3xw/images-26.jpg"
+      "https://i.postimg.cc/1Rpnw2BJ/images-28.jpg"
     ];
 
     const i = Math.floor(Math.random() * captions.length);
