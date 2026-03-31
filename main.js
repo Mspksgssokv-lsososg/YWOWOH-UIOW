@@ -1,14 +1,11 @@
-const fs = require('fs');
-const TelegramBot = require('node-telegram-bot-api');
-const colors = require('colors');
+const TelegramBot = require("node-telegram-bot-api");
+const config = require("./config.json");
+const { loadScripts, messageUtils } = require("./utils");
 
-const config = require('./config.json');
-const { loadScripts, messageUtils } = require('./utils');
-
-// ================= INIT =================
+// INIT
 const bot = new TelegramBot(config.token, { polling: true });
 
-// Global storage
+// GLOBAL
 global.commands = new Map();
 global.events = new Map();
 global.functions = {
@@ -17,87 +14,146 @@ global.functions = {
   handleEvent: new Map()
 };
 
-// ================= LOAD DATABASE =================
-let users = [];
-let threads = [];
-
-try {
-  users = JSON.parse(fs.readFileSync('./database/users.json'));
-  threads = JSON.parse(fs.readFileSync('./database/threads.json'));
-  console.log("✅ Database loaded".green);
-} catch (err) {
-  console.log("⚠️ Database not found, using empty".yellow);
-}
-
-// ================= LOAD SCRIPTS =================
+// LOAD
 loadScripts(bot);
 
-// ================= MESSAGE (COMMAND ONLY) =================
-bot.on('message', async (msg) => {
-  const text = msg.text || '';
+// ================= MESSAGE =================
+bot.on("message", async (msg) => {
+  const text = msg.text || "";
   const prefix = config.prefix;
 
-  // Only command
+  const message = messageUtils(bot, msg);
+
+  // ================= GLOBAL EVENTS =================
+  for (let cmd of global.commands.values()) {
+    try {
+      if (cmd.onChat) {
+        await cmd.onChat({ bot, event: msg, message });
+      }
+
+      if (cmd.handleEvent) {
+        await cmd.handleEvent({ bot, event: msg, message });
+      }
+
+      if (cmd.noPrefix && !text.startsWith(prefix)) {
+        await cmd.noPrefix({ bot, event: msg, message });
+      }
+
+    } catch (e) {
+      console.log("❌ Global Event Error:", e);
+    }
+  }
+
+  // ================= PREFIX COMMAND =================
   if (!text.startsWith(prefix)) return;
 
   const args = text.slice(prefix.length).trim().split(/ +/);
   const commandName = args.shift().toLowerCase();
 
-  if (!global.commands.has(commandName)) return;
+  const command =
+    global.commands.get(commandName) ||
+    [...global.commands.values()].find(cmd =>
+      cmd.config?.aliases?.includes(commandName)
+    );
+
+  if (!command) return;
 
   try {
-    const command = global.commands.get(commandName);
-
-    await command.run({
-      bot,
-      message: messageUtils(bot, msg),
-      args,
-      event: msg
-    });
-
+    if (command.onStart) {
+      await command.onStart({
+        bot,
+        event: msg,
+        args,
+        message
+      });
+    } else if (command.run) {
+      await command.run({
+        bot,
+        event: msg,
+        msg,
+        args,
+        message
+      });
+    } else if (command.start) {
+      await command.start({
+        bot,
+        event: msg,
+        args,
+        message
+      });
+    }
   } catch (err) {
-    console.error(`❌ Command error (${commandName}):`, err);
-
-    try {
-      await messageUtils(bot, msg).reply("❌ Error executing command");
-    } catch {}
+    console.log(`❌ ${commandName}:`, err);
+    message.err(err);
   }
 });
 
-// ================= CALLBACK (BUTTON REPLY) =================
-bot.on('callback_query', async (query) => {
+// ================= REPLY SYSTEM =================
+bot.on("message", async (msg) => {
+  const message = messageUtils(bot, msg);
+  const msgId = msg.reply_to_message?.message_id;
+
+  if (!msgId) return;
+
+  // reply
+  if (global.functions.reply.has(msgId)) {
+    const data = global.functions.reply.get(msgId);
+    const command = global.commands.get(data.commandName);
+
+    if (command?.reply) {
+      await command.reply({
+        bot,
+        event: msg,
+        message,
+        args: msg.text?.split(" ") || [],
+        Reply: data
+      });
+    }
+  }
+
+  // onReply
+  if (global.functions.onReply.has(msgId)) {
+    const data = global.functions.onReply.get(msgId);
+    const command = global.commands.get(data.commandName);
+
+    if (command?.onReply) {
+      await command.onReply({
+        bot,
+        event: msg,
+        message,
+        args: msg.text?.split(" ") || [],
+        Reply: data
+      });
+    }
+  }
+});
+
+// ================= CALLBACK =================
+bot.on("callback_query", async (query) => {
   const msgId = query.message.message_id;
+  const message = messageUtils(bot, query.message);
 
   if (global.functions.reply.has(msgId)) {
     const data = global.functions.reply.get(msgId);
     const command = global.commands.get(data.commandName);
 
     if (command?.reply) {
-      try {
-        await command.reply({
-          bot,
-          message: messageUtils(bot, query.message),
-          args: query.data.split(" "),
-          Reply: data,
-          event: query
-        });
-      } catch (err) {
-        console.error("❌ Reply error:", err);
-      }
+      await command.reply({
+        bot,
+        event: query,
+        message,
+        args: query.data.split(" "),
+        Reply: data
+      });
     }
   }
 });
 
-// ================= POLLING ERROR =================
-bot.on('polling_error', (error) => {
-  console.error("⚠️ Polling error:", error);
-});
-
 // ================= START LOG =================
 console.log(`
-==============================
-🤖 Bot Started Successfully
-Name   : ${config.botName}
+========================
+🤖 BOTBEE SYSTEM READY
 Prefix : ${config.prefix}
-==============================
-`.green);
+Commands : ${global.commands.size}
+========================
+`);
