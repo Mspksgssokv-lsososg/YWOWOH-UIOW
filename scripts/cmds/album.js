@@ -782,7 +782,7 @@ const categories = {
       "https://i.imgur.com/WzXz13s.mp4"
   ],
 };
- 
+
 const PAGE_SIZE = 10;
 
 module.exports = {
@@ -809,11 +809,16 @@ module.exports = {
       ctx.msg?.from?.id;
 
     if (!chatId || !userId) {
-      console.log("❌ chatId or userId not found", ctx);
+      console.log("❌ chatId or userId not found");
       return;
     }
 
-    const categoryKeys = Object.keys(categories);
+    const categoryKeys = Object.keys(categories || {});
+    
+    if (categoryKeys.length === 0) {
+      return bot.sendMessage(chatId, "❌ No categories found");
+    }
+
     let page = 1;
 
     if (args?.length > 0) {
@@ -821,12 +826,12 @@ module.exports = {
       if (!isNaN(inputPage) && inputPage > 0) page = inputPage;
     }
 
-    const totalPages = Math.ceil(categoryKeys.length / PAGE_SIZE) || 1;
+    const totalPages = Math.ceil(categoryKeys.length / PAGE_SIZE);
 
     if (page > totalPages) {
       return bot.sendMessage(
         chatId,
-        `❌ Page ${page} doesn't exist. Total pages: ${totalPages}`
+        `❌ Page ${page} doesn't exist.\nTotal pages: ${totalPages}`
       );
     }
 
@@ -835,6 +840,8 @@ module.exports = {
       startIndex,
       startIndex + PAGE_SIZE
     );
+
+    console.log("TOTAL CATEGORIES:", categoryKeys.length);
 
     const text =
       `╭─🎬 𝗔𝗹𝗯𝘂𝗺 𝗩𝗶𝗱𝗲𝗼𝘀 ─╮\n` +
@@ -867,7 +874,7 @@ module.exports = {
             Math.floor(Math.random() * categories[category].length)
           ];
 
-        const fileName = path.basename(videoURL);
+        const fileName = `${category}_${Date.now()}.mp4`;
         const filePath = path.join(__dirname, "cache", "album", fileName);
 
         if (!fs.existsSync(path.dirname(filePath))) {
@@ -879,11 +886,9 @@ module.exports = {
           `⏳ LOADING ${category}...`
         );
 
-        if (!fs.existsSync(filePath)) {
-          await downloadFile(filePath, videoURL);
-        }
+        await downloadFile(filePath, videoURL);
 
-        await bot.sendVideo(chatId, fs.createReadStream(filePath), {
+        await bot.sendVideo(chatId, filePath, {
           caption: `${category} ✅`,
         });
 
@@ -920,7 +925,6 @@ function downloadFile(filePath, url) {
         }
 
         res.pipe(file);
-
         file.on("finish", () => file.close(resolve));
       })
       .on("error", (err) => {
