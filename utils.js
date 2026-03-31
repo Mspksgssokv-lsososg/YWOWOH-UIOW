@@ -81,7 +81,7 @@ function message(bot, msg) {
     download: async ({ url, mimeType }) => {
       try {
         const ext = getExtensionFromMimeType(mimeType) || ".tmp";
-        const file = path.join(__dirname, "temp" + ext);
+        const file = path.join(process.cwd(), "temp" + ext);
 
         await downloadFile(url, file);
 
@@ -111,56 +111,89 @@ function message(bot, msg) {
 
 // ================= LOAD =================
 function loadScripts(bot) {
-  const cmdPath = path.join(__dirname, "..", "scripts", "cmds");
-  const evPath = path.join(__dirname, "..", "scripts", "events");
+  const cmdPath = path.join(process.cwd(), "scripts", "cmds");
+  const evPath = path.join(process.cwd(), "scripts", "events");
+
+  console.log("📂 CMD PATH:", cmdPath);
+  console.log("📂 EVENT PATH:", evPath);
+
+  // CHECK EXIST
+  if (!fs.existsSync(cmdPath)) {
+    console.log("❌ cmds folder not found!");
+    return;
+  }
+
+  if (!fs.existsSync(evPath)) {
+    console.log("❌ events folder not found!");
+    return;
+  }
 
   // LOAD COMMANDS
   fs.readdirSync(cmdPath).forEach(file => {
     if (!file.endsWith(".js")) return;
 
-    const cmd = require(path.join(cmdPath, file));
-    global.commands.set(cmd.config.name, cmd);
+    try {
+      const cmd = require(path.join(cmdPath, file));
 
-    console.log(`✅ CMD: ${cmd.config.name}`);
+      if (!cmd.config?.name) {
+        console.log("❌ Invalid command:", file);
+        return;
+      }
+
+      global.commands.set(cmd.config.name, cmd);
+      console.log(`✅ CMD: ${cmd.config.name}`);
+    } catch (e) {
+      console.log("❌ CMD Load Error:", file, e.message);
+    }
   });
 
-  // LOAD EVENTS (FIXED)
+  // LOAD EVENTS
   fs.readdirSync(evPath).forEach(file => {
     if (!file.endsWith(".js")) return;
 
-    const name = path.parse(file).name;
-    const ev = require(path.join(evPath, file));
-
-    const handler = (...args) => ev.run({ bot, event: args[0] });
-
-    bot.on(name, handler);
-    global.events.set(name, handler);
-
-    console.log(`⚡ EVENT: ${name}`);
-  });
-
-  // HOT RELOAD
-  chokidar.watch([cmdPath, evPath]).on("change", (file) => {
-    delete require.cache[require.resolve(file)];
-
-    if (file.includes("cmds")) {
-      const cmd = require(file);
-      global.commands.set(cmd.config.name, cmd);
-      console.log(`♻️ Reload CMD: ${cmd.config.name}`);
-    }
-
-    if (file.includes("events")) {
+    try {
       const name = path.parse(file).name;
+      const ev = require(path.join(evPath, file));
 
-      bot.removeListener(name, global.events.get(name));
-
-      const ev = require(file);
       const handler = (...args) => ev.run({ bot, event: args[0] });
 
       bot.on(name, handler);
       global.events.set(name, handler);
 
-      console.log(`♻️ Reload EVENT: ${name}`);
+      console.log(`⚡ EVENT: ${name}`);
+    } catch (e) {
+      console.log("❌ EVENT Load Error:", file, e.message);
+    }
+  });
+
+  // HOT RELOAD
+  chokidar.watch([cmdPath, evPath]).on("change", (file) => {
+    try {
+      delete require.cache[require.resolve(file)];
+
+      if (file.includes("cmds")) {
+        const cmd = require(file);
+        if (!cmd.config?.name) return;
+
+        global.commands.set(cmd.config.name, cmd);
+        console.log(`♻️ Reload CMD: ${cmd.config.name}`);
+      }
+
+      if (file.includes("events")) {
+        const name = path.parse(file).name;
+
+        bot.removeListener(name, global.events.get(name));
+
+        const ev = require(file);
+        const handler = (...args) => ev.run({ bot, event: args[0] });
+
+        bot.on(name, handler);
+        global.events.set(name, handler);
+
+        console.log(`♻️ Reload EVENT: ${name}`);
+      }
+    } catch (e) {
+      console.log("❌ Reload Error:", e.message);
     }
   });
 }
