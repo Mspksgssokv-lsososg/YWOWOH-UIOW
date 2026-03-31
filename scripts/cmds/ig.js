@@ -1,3 +1,5 @@
+const axios = require("axios");
+
 module.exports.config = {
   name: "ig",
   version: "1.0",
@@ -5,7 +7,7 @@ module.exports.config = {
   author: "SK-SIDDIK-KHAN",
   description: "Islamic post",
   category: "fun",
-  usePrefix: false, // ❗ important
+  usePrefix: false,
   usages: "{p}"
 };
 
@@ -13,7 +15,6 @@ module.exports.onChat = async ({ message, event }) => {
   const text = event.text?.trim() || "";
   const prefix = global.config.prefix;
 
-  // ✅ শুধু prefix দিলেই run
   if (text !== prefix) return;
 
   try {
@@ -33,9 +34,12 @@ module.exports.onChat = async ({ message, event }) => {
 
     const i = Math.floor(Math.random() * captions.length);
 
+    // ✅ stream fix
+    const res = await axios.get(links[i], { responseType: "stream" });
+
     await message.reply({
       body: captions[i],
-      attachment: await global.utils.getStreamFromURL(links[i])
+      attachment: res.data
     });
 
   } catch (err) {
