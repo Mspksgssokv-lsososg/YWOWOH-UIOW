@@ -1,55 +1,66 @@
-const fs = require('fs');
-const path = require('path');
- 
-const cacheDir = path.join(__dirname, 'Siddik');
-const restartTxt = path.join(cacheDir, 'restart.txt');
- 
+const fs = require("fs");
+const path = require("path");
+
+const cacheDir = path.join(__dirname, "Siddik");
+const restartTxt = path.join(cacheDir, "restart.txt");
+
 module.exports.config = {
   name: "restart",
-  aliases: [],
-  version: "1.0.0",
-  role: 2,
-  author: "dipto",
+  aliases: ["rs"],
+  version: "2.0.0",
+  role: 3,
+  author: "dipto + fixed",
   description: "Restart the bot.",
   usePrefix: true,
-  guide: "",
   category: "Admin",
-  countDown: 5,
+  cooldown: 5
 };
- 
-// Bot on load
+
+// 🔄 BOT START হলে
 module.exports.onLoad = async ({ bot }) => {
   try {
     if (!fs.existsSync(cacheDir)) {
       fs.mkdirSync(cacheDir, { recursive: true });
     }
- 
+
     if (fs.existsSync(restartTxt)) {
-      const [chatId, oldtime] = fs.readFileSync(restartTxt, "utf-8").split(" ");
-      const elapsed = ((Date.now() - Number(oldtime)) / 1000).toFixed(3);
-      await bot.sendMessage(chatId, `✅ | Bot restarted\n⏰ | Time: ${elapsed}s`);
+      const data = fs.readFileSync(restartTxt, "utf-8").split(" ");
+      const chatId = data[0];
+      const oldtime = data[1];
+
+      const elapsed = ((Date.now() - Number(oldtime)) / 1000).toFixed(2);
+
+      await bot.sendMessage(chatId, `✅ | Bot restarted\n⏱️ | Time: ${elapsed}s`);
+
       fs.unlinkSync(restartTxt);
     }
   } catch (err) {
-    console.error("Error in restart onLoad:", err);
+    console.error("❌ Restart onLoad error:", err);
   }
 };
- 
-// Restart command
-module.exports.onStart = async ({ message, chatId }) => {
+
+// ▶️ COMMAND
+module.exports.onStart = async ({ message, event }) => {
   try {
+    const chatId = event.chat.id;
+
     if (!fs.existsSync(cacheDir)) {
       fs.mkdirSync(cacheDir, { recursive: true });
     }
- 
-    // Save restart data (chatId instead of threadID)
+
+    // 💾 Save restart info
     fs.writeFileSync(restartTxt, `${chatId} ${Date.now()}`);
- 
+
     await message.reply("🔄 | Restarting the bot...");
-    process.exit(0); // 0 is normal exit code
+
+    // ⏳ delay না দিলে message send হবার আগেই off হয়ে যায়
+    setTimeout(() => {
+      console.log("♻️ BOT RESTARTING...");
+      process.exit(1); // GitHub loop থাকলে auto restart হবে
+    }, 1500);
+
   } catch (error) {
-    console.error("Restart command error:", error);
+    console.error("❌ Restart command error:", error);
     message.reply("❌ | Error occurred while restarting");
   }
 };
- 
