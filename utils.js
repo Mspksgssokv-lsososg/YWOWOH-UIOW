@@ -3,7 +3,6 @@ const axios = require("axios");
 const fs = require("fs-extra");
 const chokidar = require("chokidar");
 
-// 🎨 COLOR SYSTEM
 const c = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",
@@ -20,7 +19,6 @@ const c = {
   orange: "\x1b[38;5;208m"
 };
 
-// 🔥 SYMBOL SYSTEM
 const s = {
   ok: "✅",
   err: "❌",
@@ -29,7 +27,6 @@ const s = {
   arrow: "➤"
 };
 
-// ================= STREAM FROM URL =================
 async function getStreamFromURL(url) {
   try {
     const res = await axios.get(url, { responseType: "stream" });
@@ -39,7 +36,6 @@ async function getStreamFromURL(url) {
   }
 }
 
-// ================= EXTENSION =================
 async function getExtensionFromUrl(mediaUrl) {
   try {
     const response = await axios.get(mediaUrl, { responseType: "stream" });
@@ -63,7 +59,6 @@ function getExtensionFromMimeType(mimeType = "") {
   return map[mimeType] || "";
 }
 
-// ================= DOWNLOAD =================
 async function downloadFile(url, downloadPath) {
   try {
     const res = await axios.get(url, { responseType: "arraybuffer" });
@@ -73,7 +68,6 @@ async function downloadFile(url, downloadPath) {
   }
 }
 
-// ================= MESSAGE UTILS =================
 function message(bot, msg) {
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
@@ -185,7 +179,6 @@ function message(bot, msg) {
   };
 }
 
-// ================= LOAD =================
 function loadScripts(bot) {
   const cmdPath = path.join(process.cwd(), "scripts", "cmds");
   const evPath = path.join(process.cwd(), "scripts", "events");
@@ -193,14 +186,12 @@ function loadScripts(bot) {
   if (!fs.existsSync(cmdPath)) fs.mkdirSync(cmdPath, { recursive: true });
   if (!fs.existsSync(evPath)) fs.mkdirSync(evPath, { recursive: true });
 
-  // ===== HEADER =====
   console.log(
     `\n${c.cyan}────────────────────────────────────────────
 ${c.bold}${c.pink}🚀 LOADING COMMANDS${c.reset}
 ${c.cyan}────────────────────────────────────────────${c.reset}`
   );
 
-  // ===== CMD LOAD =====
   fs.readdirSync(cmdPath).forEach(file => {
     if (!file.endsWith(".js")) return;
 
@@ -231,7 +222,6 @@ ${c.bold}${c.lavender}⚡ LOADING EVENTS${c.reset}
 ${c.cyan}────────────────────────────────────────────${c.reset}`
   );
 
-  // ===== EVENT LOAD =====
   fs.readdirSync(evPath).forEach(file => {
     if (!file.endsWith(".js")) return;
 
@@ -261,7 +251,6 @@ ${c.cyan}───────────────────────�
     }
   });
 
-  // ===== HOT RELOAD =====
   chokidar.watch([cmdPath, evPath]).on("change", file => {
     try {
       delete require.cache[require.resolve(file)];

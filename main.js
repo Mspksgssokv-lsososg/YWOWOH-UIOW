@@ -2,7 +2,6 @@ const TelegramBot = require("node-telegram-bot-api");
 const config = require("./config.json");
 const { loadScripts, messageUtils } = require("./utils");
 
-// 🔥 utils global
 const utils = require("./utils");
 global.utils = utils;
 
@@ -12,7 +11,6 @@ const threadsData = require("./database/threads");
 const token = process.env.TELEGRAM_BOT_TOKEN || config.token;
 const bot = new TelegramBot(token, { polling: true });
 
-// 🌍 GLOBAL
 global.commands = new Map();
 global.events = new Map();
 global.config = config;
@@ -22,13 +20,10 @@ global.functions = {
   onReply: new Map()
 };
 
-// ✅ COOLDOWN STORAGE
 global.cooldowns = new Map();
 
-// 📦 LOAD COMMANDS
 loadScripts(bot);
 
-// ================= MESSAGE =================
 bot.on("message", async (msg) => {
   try {
     const text = msg.text?.trim() || "";
@@ -40,23 +35,18 @@ bot.on("message", async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
 
-    // 🔐 ADMIN SYSTEM
     const isBotAdmin = (config.admins || []).includes(userId);
     const isOperator = (config.botOperator || []).includes(userId);
 
-    // 🚫 IGNORE
     if (config.ignore_list_ID?.enable &&
         config.ignore_list_ID.IDS.includes(userId)) return;
 
-    // ✅ WHITE LIST USER
     if (config.white_list_ID?.enable &&
         !config.white_list_ID.IDS.includes(userId)) return;
 
-    // ✅ WHITE LIST GROUP
     if (config.white_list_group?.enable &&
         !config.white_list_group.groups.includes(chatId)) return;
 
-    // 👥 GROUP ADMIN CHECK
     let isAdmin = false;
     if (msg.chat.type !== "private") {
       try {
@@ -65,7 +55,6 @@ bot.on("message", async (msg) => {
       } catch {}
     }
 
-    // ================= REPLY SYSTEM =================
     const replyMsgId = msg.reply_to_message?.message_id;
 
     if (replyMsgId) {
@@ -91,7 +80,6 @@ bot.on("message", async (msg) => {
       }
     }
 
-    // ================= GLOBAL EVENTS =================
     for (let cmd of global.commands.values()) {
       try {
         if (cmd.onChat) {
@@ -106,7 +94,6 @@ bot.on("message", async (msg) => {
       }
     }
 
-    // ================= AUTO MESSAGE (NEW) =================
     for (let cmd of global.commands.values()) {
       try {
         if (cmd.onMessage) {
@@ -126,7 +113,6 @@ bot.on("message", async (msg) => {
       }
     }
 
-    // ================= COMMAND SYSTEM =================
     let commandName, args;
 
     if (text.startsWith(prefix)) {
@@ -145,10 +131,8 @@ bot.on("message", async (msg) => {
 
     if (!command) return;
 
-    // ✅ usePrefix CONTROL
     if (command.config?.usePrefix === true && !text.startsWith(prefix)) return;
 
-    // ================= COOLDOWN =================
     const cooldownTime = (command.config?.cooldown || 0) * 1000;
 
     if (cooldownTime > 0) {
@@ -162,7 +146,7 @@ bot.on("message", async (msg) => {
 
       if (now < expirationTime) {
         const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
-        return message.reply(`⏳ | Please wait ${timeLeft}s`);
+        return message.reply(`⏳ | 𝐏𝐥𝐞𝐚𝐬𝐞 𝐰𝐚𝐢𝐭 ${timeLeft}s`);
       }
 
       timestamps.set(userId, now + cooldownTime);
@@ -172,19 +156,17 @@ bot.on("message", async (msg) => {
       }, cooldownTime);
     }
 
-    // 🔒 ROLE SYSTEM
     const role = command.config?.role ?? 0;
 
     if (role === 2 && !isBotAdmin)
-      return message.reply("⚠️ | Bot admin only!");
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐛𝐨𝐭'𝐬 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
 
     if (role === 1 && !isBotAdmin && !isAdmin)
-      return message.reply("⚠️ | Group admin only!");
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐠𝐫𝐨𝐮𝐩 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
 
     if (role === 3 && !isBotAdmin && !isOperator)
-      return message.reply("⚠️ | Operator only!");
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
 
-    // ▶️ RUN COMMAND
     try {
       if (command.onStart)
         await command.onStart({ bot, event: msg, msg, args, message, usersData, threadsData });
@@ -205,7 +187,6 @@ bot.on("message", async (msg) => {
   }
 });
 
-// ================= CALLBACK =================
 bot.on("callback_query", async (query) => {
   try {
     if (!query.message) return;
@@ -239,12 +220,23 @@ bot.on("callback_query", async (query) => {
   }
 });
 
-// ================= START =================
 console.log(`
-========================
-🤖 BOT SYSTEM READY
-Name   : ${config.botName}
-Prefix : ${config.prefix}
-Owner  : ${config.owner}
-========================
+DEFINITELY BY SK SIDDIK ━━━━━━━━━━♡
+ 
+███████╗██╗██████╗ ██████╗ ██╗██╗  ██╗    ██████╗  ██████╗ ████████╗
+██╔════╝██║██╔══██╗██╔══██╗██║██║ ██╔╝    ██╔══██╗██╔═══██╗╚══██╔══╝
+███████╗██║██║  ██║██║  ██║██║█████╔╝     ██████╔╝██║   ██║   ██║   
+╚════██║██║██║  ██║██║  ██║██║██╔═██╗     ██╔══██╗██║   ██║   ██║   
+███████║██║██████╔╝██████╔╝██║██║  ██╗    ██████╔╝╚██████╔╝   ██║   
+╚══════╝╚═╝╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═╝    ╚═════╝  ╚═════╝    ╚═╝   
+                                                                    
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┣➤🤖 SIDDIK BOT SYSTEM READY
+┣━━━━━━━━━━━━━━━━━━━
+┣➤Name   : ${config.botName}
+┣━━━━━━━━━━━━━━━━━━━
+┣➤Prefix : ${config.prefix}
+┣━━━━━━━━━━━━━━━━━━━
+┣➤Owner  : ${config.owner}
+┗━━━━━━━━━━━━━━━━𝗘𝗡𝗝𝗢𝗬━━━━━━━━━━━━━┛
 `);
