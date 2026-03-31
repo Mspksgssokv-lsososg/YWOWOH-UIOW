@@ -8,7 +8,7 @@ module.exports.config = {
   name: "restart",
   aliases: [],
   version: "1.0.0",
-  role: 3,
+  role: 2,
   author: "dipto",
   description: "Restart the bot.",
   usePrefix: true,
