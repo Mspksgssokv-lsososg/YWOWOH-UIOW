@@ -1,209 +1,220 @@
-const TelegramBot = require("node-telegram-bot-api");
-const config = require("./config.json");
-const { loadScripts, messageUtils } = require("./utils");
+const path = require("path");
+const axios = require("axios");
+const fs = require("fs-extra");
+const chokidar = require("chokidar");
 
-const usersData = require("./database/users");
-const threadsData = require("./database/threads");
-
-const token = process.env.TELEGRAM_BOT_TOKEN || config.token;
-const bot = new TelegramBot(token, { polling: true });
-
-global.commands = new Map();
-global.events = new Map();
-
-global.functions = {
-  config: config,
-  reply: new Map(),
-  onReply: new Map()
-};
-
-loadScripts(bot);
-
-bot.on("message", async (msg) => {
+// ================= EXTENSION =================
+async function getExtensionFromUrl(mediaUrl) {
   try {
-    const text = msg.text || "";
-    const prefix = config.prefix;
+    const response = await axios.get(mediaUrl, { responseType: "stream" });
+    const type = response.headers["content-type"];
+    return getExtensionFromMimeType(type) || path.extname(new URL(mediaUrl).pathname);
+  } catch {
+    return path.extname(mediaUrl);
+  }
+}
 
-    if (!text) return;
+function getExtensionFromMimeType(mimeType = "") {
+  const map = {
+    "video/mp4": ".mp4",
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "audio/mpeg": ".mp3",
+    "audio/mp4": ".mp3",
+    "audio/wav": ".wav"
+  };
+  return map[mimeType] || "";
+}
 
-    const message = messageUtils(bot, msg);
+// ================= DOWNLOAD =================
+async function downloadFile(url, downloadPath) {
+  const res = await axios.get(url, { responseType: "arraybuffer" });
+  fs.writeFileSync(downloadPath, Buffer.from(res.data));
+}
 
-    for (let cmd of global.commands.values()) {
+// ================= MESSAGE UTILS =================
+function message(bot, msg) {
+  const chatId = msg.chat.id;
+  const messageId = msg.message_id;
+
+  async function sendErr(err) {
+    const text =
+      typeof err === "object"
+        ? `${err.name}: ${err.message}`
+        : err;
+
+    return bot.sendMessage(chatId, `❌ | ${text}`, {
+      reply_to_message_id: messageId
+    });
+  }
+
+  return {
+    send: async (text, opt = {}) =>
+      bot.sendMessage(chatId, text, opt).catch(sendErr),
+
+    reply: async (text, opt = {}) =>
+      bot.sendMessage(chatId, text, {
+        reply_to_message_id: messageId,
+        ...opt
+      }).catch(sendErr),
+
+    unsend: async (id) =>
+      bot.deleteMessage(chatId, id).catch(() => {}),
+
+    // ✅ FIXED STREAM
+    stream: async ({ url, caption = "" }) => {
       try {
-        if (cmd.onChat) {
-          await cmd.onChat({ bot, event: msg, msg, message, usersData, threadsData });
-        }
+        const ext = url.startsWith("http")
+          ? await getExtensionFromUrl(url)
+          : path.extname(url);
 
-        if (cmd.handleEvent) {
-          await cmd.handleEvent({ bot, event: msg, msg, message, usersData, threadsData });
-        }
+        if ([".jpg", ".jpeg", ".png"].includes(ext))
+          return bot.sendPhoto(chatId, url, { caption });
 
-        if (cmd.noPrefix && !text.startsWith(prefix)) {
-          await cmd.noPrefix({ bot, event: msg, msg, message, usersData, threadsData });
-        }
+        if ([".mp4"].includes(ext))
+          return bot.sendVideo(chatId, url, { caption });
 
+        if ([".mp3", ".wav"].includes(ext))
+          return bot.sendAudio(chatId, url, { caption });
+
+        throw new Error("Unsupported media type");
       } catch (e) {
-        console.log("❌ Global Event Error:", e);
+        return sendErr(e);
       }
-    }
+    },
 
-    const replyMsgId = msg.reply_to_message?.message_id;
+    // ✅ FIXED DOWNLOAD TEMP NAME
+    download: async ({ url, mimeType }) => {
+      try {
+        const ext = getExtensionFromMimeType(mimeType) || ".tmp";
+        const file = path.join(process.cwd(), `temp_${Date.now()}${ext}`);
 
-    if (replyMsgId) {
+        await downloadFile(url, file);
 
-      if (global.functions.reply.has(replyMsgId)) {
-        const data = global.functions.reply.get(replyMsgId);
-        const command = global.commands.get(data.commandName);
+        if (mimeType.startsWith("image"))
+          await bot.sendPhoto(chatId, file);
 
-        if (command?.reply) {
-          await command.reply({
-            bot,
-            event: msg,
-            msg,
-            message,
-            args: text.split(" "),
-            Reply: data,
-            usersData,
-            threadsData
-          });
-        }
+        else if (mimeType.startsWith("video"))
+          await bot.sendVideo(chatId, file);
+
+        else if (mimeType.startsWith("audio"))
+          await bot.sendAudio(chatId, file);
+
+        await fs.remove(file);
+      } catch (e) {
+        return sendErr(e);
       }
+    },
 
-      if (global.functions.onReply.has(replyMsgId)) {
-        const data = global.functions.onReply.get(replyMsgId);
-        const command = global.commands.get(data.commandName);
+    code: async (txt) =>
+      bot.sendMessage(chatId, `\`\`\`js\n${txt}\n\`\`\``, {
+        parse_mode: "Markdown"
+      }),
 
-        if (command?.onReply) {
-          await command.onReply({
-            bot,
-            event: msg,
-            msg,
-            message,
-            args: text.split(" "),
-            Reply: data,
-            usersData,
-            threadsData
-          });
-        }
-      }
-    }
+    err: sendErr
+  };
+}
 
-    const hasPrefix = text.startsWith(prefix);
+// ================= LOAD SCRIPTS =================
+function loadScripts(bot) {
+  const cmdPath = path.join(process.cwd(), "scripts", "cmds");
+  const evPath = path.join(process.cwd(), "scripts", "events");
 
-    const input = hasPrefix
-      ? text.slice(prefix.length).trim()
-      : text.trim();
+  console.log("📂 CMD PATH:", cmdPath);
+  console.log("📂 EVENT PATH:", evPath);
 
-    const args = input.split(/ +/);
-    const commandName = args.shift()?.toLowerCase();
+  if (!fs.existsSync(cmdPath)) {
+    console.log("❌ cmds folder not found!");
+    return;
+  }
 
-    const command =
-      global.commands.get(commandName) ||
-      [...global.commands.values()].find(cmd =>
-        cmd.config?.aliases?.includes(commandName)
-      );
+  if (!fs.existsSync(evPath)) {
+    console.log("❌ events folder not found!");
+    return;
+  }
 
-    if (!command) return;
-
-    if (command.config?.usePrefix === false) {
-    } else {
-      if (!hasPrefix) return;
-    }
+  // ================= COMMAND =================
+  fs.readdirSync(cmdPath).forEach(file => {
+    if (!file.endsWith(".js")) return;
 
     try {
-      if (command.onStart) {
-        await command.onStart({
-          bot,
-          event: msg,
-          msg,
-          args,
-          message,
-          usersData,
-          threadsData
-        });
-      } else if (command.run) {
-        await command.run({
-          bot,
-          event: msg,
-          msg,
-          args,
-          message,
-          usersData,
-          threadsData
-        });
-      } else if (command.start) {
-        await command.start({
-          bot,
-          event: msg,
-          msg,
-          args,
-          message,
-          usersData,
-          threadsData
-        });
+      const cmd = require(path.join(cmdPath, file));
+
+      if (!cmd.config?.name) {
+        console.log("❌ Invalid command:", file);
+        return;
       }
-    } catch (err) {
-      console.log(`❌ ${commandName}:`, err);
-      message.err(err);
+
+      global.commands.set(cmd.config.name, cmd);
+      console.log(`✅ CMD: ${cmd.config.name}`);
+    } catch (e) {
+      console.log("❌ CMD Load Error:", file, e.message);
     }
+  });
 
-  } catch (err) {
-    console.log("❌ MAIN ERROR:", err);
-  }
-});
+  // ================= EVENTS =================
+  fs.readdirSync(evPath).forEach(file => {
+    if (!file.endsWith(".js")) return;
 
-bot.on("callback_query", async (query) => {
-  try {
-    if (!query.message) return;
+    try {
+      const name = path.parse(file).name;
+      const ev = require(path.join(evPath, file));
 
-    const msgId = query.message.message_id;
-    const message = messageUtils(bot, query.message);
-
-    if (global.functions.reply.has(msgId)) {
-      const data = global.functions.reply.get(msgId);
-      const command = global.commands.get(data.commandName);
-
-      if (command?.reply) {
-        await command.reply({
-          bot,
-          event: query,
-          msg: query.message,
-          message,
-          args: query.data?.split(" ") || [],
-          Reply: data,
-          usersData,
-          threadsData
-        });
+      if (typeof ev.run !== "function") {
+        console.log("❌ Invalid event:", file);
+        return;
       }
+
+      const handler = (...args) => ev.run({ bot, event: args[0] });
+
+      bot.on(name, handler);
+      global.events.set(name, handler);
+
+      console.log(`⚡ EVENT: ${name}`);
+    } catch (e) {
+      console.log("❌ EVENT Load Error:", file, e.message);
     }
+  });
 
-    if (global.functions.onReply.has(msgId)) {
-      const data = global.functions.onReply.get(msgId);
-      const command = global.commands.get(data.commandName);
+  // ================= WATCHER =================
+  chokidar.watch([cmdPath, evPath]).on("change", (file) => {
+    try {
+      delete require.cache[require.resolve(file)];
 
-      if (command?.onReply) {
-        await command.onReply({
-          bot,
-          event: query,
-          msg: query.message,
-          message,
-          args: query.data?.split(" ") || [],
-          Reply: data,
-          usersData,
-          threadsData
-        });
+      if (file.includes("cmds")) {
+        const cmd = require(file);
+        if (!cmd.config?.name) return;
+
+        global.commands.set(cmd.config.name, cmd);
+        console.log(`♻️ Reload CMD: ${cmd.config.name}`);
       }
+
+      if (file.includes("events")) {
+        const name = path.parse(file).name;
+
+        if (global.events.has(name)) {
+          bot.removeListener(name, global.events.get(name));
+        }
+
+        const ev = require(file);
+
+        if (typeof ev.run !== "function") return;
+
+        const handler = (...args) => ev.run({ bot, event: args[0] });
+
+        bot.on(name, handler);
+        global.events.set(name, handler);
+
+        console.log(`♻️ Reload EVENT: ${name}`);
+      }
+    } catch (e) {
+      console.log("❌ Reload Error:", e.message);
     }
+  });
+}
 
-  } catch (err) {
-    console.log("❌ CALLBACK ERROR:", err);
-  }
-});
-
-console.log(`
-========================
-🤖 BOT SYSTEM READY
-Prefix : ${config.prefix}
-Commands : ${global.commands.size}
-========================
-`);
+// ================= EXPORT =================
+module.exports = {
+  messageUtils: message,
+  loadScripts
+};
