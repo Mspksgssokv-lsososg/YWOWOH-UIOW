@@ -1,18 +1,32 @@
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs');
+const path = require('path');
 
-const dataPath = path.join(__dirname, "threads.json");
+const dataPath = path.join(__dirname, 'threads.json');
 
 function loadJSONData() {
   try {
-    if (fs.existsSync(dataPath)) {
-      return JSON.parse(fs.readFileSync(dataPath, "utf-8"));
-    } else {
-      fs.writeFileSync(dataPath, JSON.stringify([]));
+    if (!fs.existsSync(dataPath)) {
+      fs.writeFileSync(dataPath, JSON.stringify([], null, 2));
       return [];
     }
-  } catch (error) {
-    console.error("Error loading JSON:", error);
+
+    const raw = fs.readFileSync(dataPath, 'utf-8');
+
+    if (!raw || raw.trim() === "") return [];
+
+    let data = JSON.parse(raw);
+
+    if (!Array.isArray(data)) return [];
+
+    return data.filter(t => t && t.threadId != null);
+
+  } catch (err) {
+    console.error("❌ JSON Error Fixed:", err.message);
+
+    const backupPath = dataPath + ".backup";
+    fs.copyFileSync(dataPath, backupPath);
+
+    fs.writeFileSync(dataPath, JSON.stringify([], null, 2));
     return [];
   }
 }
@@ -20,92 +34,36 @@ function loadJSONData() {
 function saveJSONData(data) {
   try {
     fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.error("Error saving JSON:", error);
+  } catch (err) {
+    console.error("❌ Save Error:", err.message);
   }
 }
 
-let jsonData = loadJSONData();
-
 module.exports = {
+  getAll: () => loadJSONData(),
+  getAllThreads: () => loadJSONData(), 
 
-  async createThread(threadData) {
-    try {
-      jsonData.push(threadData);
-      saveJSONData(jsonData);
-      return threadData;
-    } catch (error) {
-      console.error("Error creating thread:", error);
-      return null;
+  get: (threadId) => {
+    const data = loadJSONData();
+    return data.find(t => t.threadId == threadId);
+  },
+
+  set: (thread) => {
+    const data = loadJSONData();
+    const index = data.findIndex(t => t.threadId == thread.threadId);
+
+    if (index !== -1) {
+      data[index] = { ...data[index], ...thread };
+    } else {
+      data.push(thread);
     }
+
+    saveJSONData(data);
   },
 
-  async getThread(threadId) {
-    try {
-      return jsonData.find(t => t.threadId == threadId) || null;
-    } catch (error) {
-      console.error("Error fetching thread:", error);
-      return null;
-    }
-  },
-
-  async get(threadId) {
-    return this.getThread(threadId);
-  },
-
-  async updateThread(threadId, updateData) {
-    try {
-      const index = jsonData.findIndex(t => t.threadId == threadId);
-      if (index === -1) return null;
-
-      jsonData[index] = {
-        ...jsonData[index],
-        ...updateData
-      };
-
-      saveJSONData(jsonData);
-      return jsonData[index];
-    } catch (error) {
-      console.error("Error updating thread:", error);
-      return null;
-    }
-  },
-
-  async set(threadId, updateData) {
-    return this.updateThread(threadId, updateData);
-  },
-
-  async setThread(threadId, updateData) {
-    return this.updateThread(threadId, updateData);
-  },
-
-  async setThreadData(threadId, updateData) {
-    return this.updateThread(threadId, updateData);
-  },
-
-  async deleteThread(threadId) {
-    try {
-      const index = jsonData.findIndex(t => t.threadId == threadId);
-      if (index === -1) return null;
-
-      const deleted = jsonData.splice(index, 1);
-      saveJSONData(jsonData);
-      return deleted[0];
-    } catch (error) {
-      console.error("Error deleting thread:", error);
-      return null;
-    }
-  },
-
-  async delete(threadId) {
-    return this.deleteThread(threadId);
-  },
-
-  async getAllThreads() {
-    return jsonData;
-  },
-
-  async getAll() {
-    return this.getAllThreads();
+  delete: (threadId) => {
+    let data = loadJSONData();
+    data = data.filter(t => t.threadId != threadId);
+    saveJSONData(data);
   }
 };
