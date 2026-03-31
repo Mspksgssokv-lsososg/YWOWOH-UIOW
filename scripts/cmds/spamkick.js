@@ -10,12 +10,25 @@ module.exports = {
     commandCategory: "moderation",
     guide: "Automatically detects and kicks users who spam the chat",
   },
-
+ 
   onChat: async function ({ message, event, api, threadsData }) {
+
+    // ✅ FIX 1: event check
+    if (!event || !event.chat || !event.from) return;
+
     const chatId = event.chat.id;
     const userId = event.from.id;
 
-    const thread = await threadsData.get(chatId);
+    // ✅ FIX 2: thread safe load
+    let thread = await threadsData.get(chatId);
+    if (!thread) {
+      thread = { settings: {} };
+    }
+
+    // ✅ FIX 3: settings safe
+    if (!thread.settings) {
+      thread.settings = {};
+    }
 
     if (!thread.settings.spamDetection) {
       thread.settings.spamDetection = {};
@@ -35,9 +48,13 @@ module.exports = {
     if (recentMessages.length > 5) {
       try {
         await api.banChatMember(chatId, userId);
-        await message.reply(
-          `⚠️ User ${event.from.username || event.from.first_name} has been kicked for spamming.`
-        );
+
+        if (message && message.reply) {
+          await message.reply(
+            `⚠️ User ${event.from.username || event.from.first_name} has been kicked for spamming.`
+          );
+        }
+
       } catch (err) {
         console.error(`Failed to kick user ${userId}:`, err);
       }
