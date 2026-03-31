@@ -1,132 +1,144 @@
-// main.js
 const fs = require('fs');
 const path = require('path');
-const express = require('express');
-const { spawn } = require('child_process');
 const TelegramBot = require('node-telegram-bot-api');
+const express = require('express');
 const colors = require('colors');
-const config = require('./config.json');
-const { messageUtils, loadScripts } = require('./utils.js'); // utils.js থেকে import
 
-// Initialize bot
+const config = require('./config.json');
+const { loadScripts, messageUtils } = require('./utils');
+
+// ================= INIT =================
 const bot = new TelegramBot(config.token, { polling: true });
 
-// Global maps for commands, events, replies
+// Global storage
 global.commands = new Map();
 global.events = new Map();
 global.functions = {
-    reply: new Map(),
-    onReply: new Map(),
-    handleEvent: new Map()
+  reply: new Map(),
+  onReply: new Map(),
+  handleEvent: new Map()
 };
 
-// Users and threads for dashboard
+// ================= LOAD DATABASE =================
 let users = [];
 let threads = [];
 
-// Optional: restartable child process logic
-let botProcess;
-async function startBot() {
-    botProcess = spawn('node', ['index.js'], {
-        cwd: __dirname,
-        stdio: 'inherit',
-        shell: true
-    });
-
-    botProcess.on('close', (code) => {
-        if (code === 2) {
-            console.log('Restarting BotBee...'.red);
-            startBot();
-        } else if (code !== 0) {
-            console.error(`Bot process exited with code ${code}`);
-        }
-    });
+try {
+  users = JSON.parse(fs.readFileSync('./database/users.json'));
+  threads = JSON.parse(fs.readFileSync('./database/threads.json'));
+  console.log("✅ Database loaded".green);
+} catch (err) {
+  console.log("⚠️ Database not found, using empty".yellow);
 }
 
-// Start the bot process
-startBot();
-
-// Load commands and events from scripts folder
+// ================= LOAD SCRIPTS =================
 loadScripts(bot, config);
 
-// Express dashboard
+// ================= EXPRESS SERVER =================
 const app = express();
-const port = 3000;
+const PORT = process.env.PORT || 3000;
 
+app.use(express.json());
+
+// Dashboard route
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.send("🤖 Bot is running...");
 });
 
-app.get('/dashboard-data', (req, res) => {
-    try {
-        const uptime = process.uptime();
-        const dashboardData = {
-            botName: config.botName,
-            prefix: config.prefix,
-            adminName: config.adminName,
-            totalUsers: users.length,
-            totalThreads: threads.length,
-            uptime
-        };
-        res.json(dashboardData);
-    } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        res.status(500).send('Internal Server Error');
-    }
+// Info API
+app.get('/dashboard', (req, res) => {
+  res.json({
+    botName: config.botName || "Telegram Bot",
+    prefix: config.prefix,
+    admin: config.adminName || "Unknown",
+    totalUsers: users.length,
+    totalThreads: threads.length,
+    uptime: process.uptime()
+  });
 });
 
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`.cyan);
+app.listen(PORT, () => {
+  console.log(`🌐 Server running on port ${PORT}`.cyan);
 });
 
-// Handle incoming messages
+// ================= MESSAGE HANDLER =================
 bot.on('message', async (msg) => {
-    const chatId = msg.chat.id;
-    const text = msg.text || '';
-    const prefix = config.prefix;
+  const text = msg.text || '';
+  const prefix = config.prefix;
 
-    if (!text.startsWith(prefix)) return;
+  // ===== RUN EVENTS =====
+  for (const event of global.events.values()) {
+    try {
+      event.run?.({
+        bot,
+        event: msg
+      });
+    } catch (err) {
+      console.error("❌ Event error:", err);
+    }
+  }
 
-    const args = text.slice(prefix.length).trim().split(/ +/);
-    const commandName = args.shift().toLowerCase();
+  // ===== COMMAND CHECK =====
+  if (!text.startsWith(prefix)) return;
 
-    if (!global.commands.has(commandName)) return;
+  const args = text.slice(prefix.length).trim().split(/ +/);
+  const commandName = args.shift().toLowerCase();
+
+  if (!global.commands.has(commandName)) return;
+
+  try {
+    const command = global.commands.get(commandName);
+
+    await command.run({
+      bot,
+      message: messageUtils(bot, msg),
+      args,
+      event: msg
+    });
+
+  } catch (err) {
+    console.error(`❌ Command error (${commandName}):`, err);
 
     try {
-        const command = global.commands.get(commandName);
-        await command.run({ bot, message: messageUtils(bot, msg), args, event: msg });
-    } catch (err) {
-        console.error(`Error running command ${commandName}:`, err);
-        await messageUtils(bot, msg).err(err);
-    }
+      await messageUtils(bot, msg).reply("❌ Error executing command");
+    } catch {}
+  }
 });
 
-// Handle replies for reply system
+// ================= CALLBACK (BUTTON REPLY SYSTEM) =================
 bot.on('callback_query', async (query) => {
-    const infoID = query.message.message_id;
-    if (global.functions.reply.has(infoID)) {
-        const replyData = global.functions.reply.get(infoID);
-        if (replyData) {
-            const command = global.commands.get(replyData.commandName);
-            if (command?.reply) {
-                await command.reply({
-                    bot,
-                    message: messageUtils(bot, query.message),
-                    args: query.data.split(' '),
-                    Reply: replyData,
-                    event: query
-                });
-            }
-        }
+  const msgId = query.message.message_id;
+
+  if (global.functions.reply.has(msgId)) {
+    const data = global.functions.reply.get(msgId);
+    const command = global.commands.get(data.commandName);
+
+    if (command?.reply) {
+      try {
+        await command.reply({
+          bot,
+          message: messageUtils(bot, query.message),
+          args: query.data.split(" "),
+          Reply: data,
+          event: query
+        });
+      } catch (err) {
+        console.error("❌ Reply error:", err);
+      }
     }
+  }
 });
 
-// Optional: handle inline replies
-bot.on('inline_query', async (query) => {
-    // handle inline commands if needed
-});
-
-// Optional: error logging
+// ================= POLLING ERROR =================
 bot.on('polling_error', (error) => {
-    console.error('Polling Error:', error);
+  console.error("⚠️ Polling error:", error);
 });
+
+// ================= START LOG =================
+console.log(`
+==============================
+🤖 Bot Started Successfully
+Name   : ${config.botName}
+Prefix : ${config.prefix}
+==============================
+`.green);
