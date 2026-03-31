@@ -1,19 +1,21 @@
 const Thread = require("../models/thread");
-const fs = require('fs');
-//const dataPath = `${__dirname}/threads.json`;
+const fs = require("fs");
+const path = require("path");
 
-//let jsonData = loadJSONData();
+// ✅ FIXED PATH
+const dataPath = path.join(__dirname, "threads.json");
 
+// ================= JSON SYSTEM =================
 function loadJSONData() {
   try {
     if (fs.existsSync(dataPath)) {
-      return JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+      return JSON.parse(fs.readFileSync(dataPath, "utf-8"));
     } else {
       fs.writeFileSync(dataPath, JSON.stringify([]));
       return [];
     }
   } catch (error) {
-    console.error('Error loading JSON data:', error);
+    console.error("Error loading JSON data:", error);
     return [];
   }
 }
@@ -22,158 +24,96 @@ function saveJSONData(data) {
   try {
     fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
   } catch (error) {
-    console.error('Error saving JSON data:', error);
+    console.error("Error saving JSON data:", error);
   }
 }
 
-function updateJSONThread(threadId, updateData) {
-  const index = jsonData.findIndex((thread) => thread.threadId === threadId);
-  if (index !== -1) {
-    jsonData[index] = { ...jsonData[index], ...updateData };
-  saveJSONData(jsonData);
-  }
-}
+let jsonData = loadJSONData();
 
-function deleteJSONThread(threadId) {
-  jsonData = jsonData.filter((thread) => thread.threadId !== threadId);
- saveJSONData(jsonData);
-}
-
+// ================= EXPORT =================
 module.exports = {
+
+  // CREATE
   async createThread(threadData) {
     try {
       const thread = new Thread(threadData);
       await thread.save();
-/*
-      const existingIndex = jsonData.findIndex(t => t.threadId === threadData.threadId);
-      if (existingIndex === -1) {
-        jsonData.push(threadData);
-      } else {
-        jsonData[existingIndex] = { ...jsonData[existingIndex], ...threadData };
-      }
-
-      saveJSONData(jsonData);*/
       return thread;
     } catch (error) {
-      console.error("Error creating thread:", error);
-      throw error;
+      console.error("Error creating thread:", error.message);
+      return null;
     }
   },
 
+  // GET THREAD
   async getThread(threadId) {
     try {
-      return await Thread.findOne({ threadId });
+      const thread = await Thread.findOne({ threadId });
+      return thread || null;
     } catch (error) {
-      console.error("Error fetching thread:", error);
-      throw error;
-    }
-  },async get(threadId) {
-    try {
-      return await Thread.findOne({ threadId });
-    } catch (error) {
-      console.error("Error fetching thread:", error);
-      throw error;
+      console.error("Error fetching thread:", error.message);
+      return null;
     }
   },
 
+  async get(threadId) {
+    return this.getThread(threadId);
+  },
+
+  // UPDATE
   async updateThread(threadId, updateData) {
     try {
-      const updatedThread = await Thread.findOneAndUpdate({ threadId }, updateData, { new: true });
-      /*if (updatedThread) {
-        updateJSONThread(threadId, updateData);
-      }*/
-      return updatedThread;
+      const updated = await Thread.findOneAndUpdate(
+        { threadId },
+        updateData,
+        { new: true }
+      );
+      return updated || null;
     } catch (error) {
-      console.error("Error updating thread:", error);
-      throw error;
-    }
-  },async set(threadId, updateData) {
-    try {
-      const updatedThread = await Thread.findOneAndUpdate({ threadId }, updateData, { new: true });
-      /*if (updatedThread) {
-        updateJSONThread(threadId, updateData);
-      }*/
-      return updatedThread;
-    } catch (error) {
-      console.error("Error updating thread:", error);
-      throw error;
-    }
-  },async setThread(threadId, updateData) {
-    try {
-      const updatedThread = await Thread.findOneAndUpdate({ threadId }, updateData, { new: true });
-     /* if (updatedThread) {
-        updateJSONThread(threadId, updateData);
-      }*/
-      return updatedThread;
-    } catch (error) {
-      console.error("Error updating thread:", error);
-      throw error;
-    }
-  },
-
-  async setThreadData(threadId, updateData) {
-    try {
-      const updatedThread = await Thread.findOneAndUpdate({ threadId }, updateData, { new: true });
-     /* if (updatedThread) {
-        updateJSONThread(threadId, updateData);
-      }*/
-      return updatedThread;
-    } catch (error) {
-      console.error("Error setting thread data:", error);
-      throw error;
+      console.error("Error updating thread:", error.message);
+      return null;
     }
   },
 
   async set(threadId, updateData) {
-    try {
-      const updatedThread = await Thread.findOneAndUpdate({ threadId }, updateData, { new: true });
-      /*if (updatedThread) {
-        updateJSONThread(threadId, updateData);
-      }*/
-      return updatedThread;
-    } catch (error) {
-      console.error("Error setting thread data:", error);
-      throw error;
-    }
+    return this.updateThread(threadId, updateData);
   },
 
+  async setThread(threadId, updateData) {
+    return this.updateThread(threadId, updateData);
+  },
+
+  async setThreadData(threadId, updateData) {
+    return this.updateThread(threadId, updateData);
+  },
+
+  // DELETE
   async deleteThread(threadId) {
     try {
-      const deletedThread = await Thread.findOneAndDelete({ threadId });
-     /* if (deletedThread) {
-        deleteJSONThread(threadId);
-      }*/
-      return deletedThread;
+      const deleted = await Thread.findOneAndDelete({ threadId });
+      return deleted || null;
     } catch (error) {
-      console.error("Error deleting thread:", error);
-      throw error;
-    }
-  },async delete(threadId) {
-    try {
-      const deletedThread = await Thread.findOneAndDelete({ threadId });
-      /*if (deletedThread) {
-        deleteJSONThread(threadId);
-      }*/
-      return deletedThread;
-    } catch (error) {
-      console.error("Error deleting thread:", error);
-      throw error;
+      console.error("Error deleting thread:", error.message);
+      return null;
     }
   },
 
+  async delete(threadId) {
+    return this.deleteThread(threadId);
+  },
+
+  // GET ALL 🔥 FIXED
   async getAllThreads() {
     try {
-      return await Thread.find({});
+      const threads = await Thread.find({});
+      return Array.isArray(threads) ? threads : [];
     } catch (error) {
-      console.error("Error fetching all threads:", error);
-      throw error;
+      console.error("Error fetching all threads:", error.message);
+      return []; // ✅ VERY IMPORTANT
     }
-  },async getAll() {
-    try {
-      return await Thread.find({});
-    } catch (error) {
-      console.error("Error fetching all threads:", error);
-      throw error;
-    }
+  },
+
+  async getAll() {
+    return this.getAllThreads();
   }
 };
