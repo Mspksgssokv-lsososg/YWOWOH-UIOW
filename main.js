@@ -1,14 +1,12 @@
 const TelegramBot = require("node-telegram-bot-api");
 const config = require("./config.json");
-const { loadScripts, messageUtils } = require("./utils");
-
-const usersData = require("./database/users");
-const threadsData = require("./database/threads");
+const { loadScripts } = require("./utils");
 
 const token = process.env.TELEGRAM_BOT_TOKEN || config.token;
 const bot = new TelegramBot(token, { polling: true });
 
-// 🌍 GLOBAL
+loadScripts(bot);
+
 global.commands = new Map();
 global.events = new Map();
 
