@@ -1,6 +1,5 @@
 const fs = require('fs');
 const TelegramBot = require('node-telegram-bot-api');
-const express = require('express');
 const colors = require('colors');
 
 const config = require('./config.json');
@@ -32,36 +31,6 @@ try {
 
 // ================= LOAD SCRIPTS =================
 loadScripts(bot);
-
-// ================= EXPRESS SERVER =================
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(express.json());
-
-// Home
-app.get('/', (req, res) => {
-  res.send("🤖 Bot is running...");
-});
-
-// Dashboard
-app.get('/dashboard', (req, res) => {
-  res.json({
-    botName: config.botName || "Telegram Bot",
-    prefix: config.prefix,
-    admin: config.adminName || "Unknown",
-    totalUsers: users.length,
-    totalThreads: threads.length,
-    uptime: process.uptime()
-  });
-});
-
-// ⚠️ FIXED (avoid port conflict)
-if (!process.env.PORT) {
-  app.listen(PORT, () => {
-    console.log(`🌐 Server running on port ${PORT}`.cyan);
-  });
-}
 
 // ================= MESSAGE (COMMAND ONLY) =================
 bot.on('message', async (msg) => {
