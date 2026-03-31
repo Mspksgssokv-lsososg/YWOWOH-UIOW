@@ -3,12 +3,38 @@ const axios = require("axios");
 const fs = require("fs-extra");
 const chokidar = require("chokidar");
 
+// 🎨 COLOR SYSTEM
+const c = {
+  reset: "\x1b[0m",
+  bold: "\x1b[1m",
+
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  cyan: "\x1b[36m",
+  white: "\x1b[37m",
+
+  pink: "\x1b[38;5;213m",
+  mint: "\x1b[38;5;121m",
+  lavender: "\x1b[38;5;183m",
+  orange: "\x1b[38;5;208m"
+};
+
+// 🔥 SYMBOL SYSTEM
+const s = {
+  ok: "✅",
+  err: "❌",
+  warn: "⚠️",
+  reload: "♻️",
+  arrow: "➤"
+};
+
 // ================= STREAM FROM URL =================
 async function getStreamFromURL(url) {
   try {
     const res = await axios.get(url, { responseType: "stream" });
     return res.data;
-  } catch (err) {
+  } catch {
     throw new Error("Failed to get stream");
   }
 }
@@ -42,7 +68,7 @@ async function downloadFile(url, downloadPath) {
   try {
     const res = await axios.get(url, { responseType: "arraybuffer" });
     await fs.writeFile(downloadPath, Buffer.from(res.data));
-  } catch (err) {
+  } catch {
     throw new Error("Download failed");
   }
 }
@@ -89,17 +115,13 @@ function message(bot, msg) {
       } catch {}
     },
 
-    // ✅ STREAM FIXED
     stream: async ({ url, caption = "" }) => {
       try {
         const ext = url.startsWith("http")
           ? await getExtensionFromUrl(url)
           : path.extname(url).toLowerCase();
 
-        const options = {
-          caption,
-          reply_to_message_id: messageId
-        };
+        const options = { caption, reply_to_message_id: messageId };
 
         if ([".jpg", ".jpeg", ".png", ".gif"].includes(ext)) {
           return bot.sendPhoto(chatId, url, options);
@@ -119,7 +141,6 @@ function message(bot, msg) {
       }
     },
 
-    // ✅ DOWNLOAD FIXED
     download: async ({ url, mimeType }) => {
       try {
         const ext = getExtensionFromMimeType(mimeType) || ".tmp";
@@ -172,24 +193,45 @@ function loadScripts(bot) {
   if (!fs.existsSync(cmdPath)) fs.mkdirSync(cmdPath, { recursive: true });
   if (!fs.existsSync(evPath)) fs.mkdirSync(evPath, { recursive: true });
 
-  // LOAD COMMANDS
+  // ===== HEADER =====
+  console.log(
+    `\n${c.cyan}────────────────────────────────────────────
+${c.bold}${c.pink}🚀 LOADING COMMANDS${c.reset}
+${c.cyan}────────────────────────────────────────────${c.reset}`
+  );
+
+  // ===== CMD LOAD =====
   fs.readdirSync(cmdPath).forEach(file => {
     if (!file.endsWith(".js")) return;
 
     try {
       delete require.cache[require.resolve(path.join(cmdPath, file))];
-
       const cmd = require(path.join(cmdPath, file));
-      if (!cmd.config?.name) return;
+
+      if (!cmd.config?.name) {
+        console.log(`${c.yellow}${s.warn} cmd skipped ${c.bold}${file}${c.reset}`);
+        return;
+      }
 
       global.commands.set(cmd.config.name, cmd);
-      console.log("✅ CMD LOADED:", cmd.config.name);
-    } catch (err) {
-      console.log("❌ CMD ERROR:", file);
+
+      console.log(
+        `${c.green}${s.ok} cmd load successfully ${c.bold}${file}${c.reset}`
+      );
+    } catch {
+      console.log(
+        `${c.red}${s.err} cmd load failed ${c.bold}${file}${c.reset}`
+      );
     }
   });
 
-  // LOAD EVENTS
+  console.log(
+    `\n${c.cyan}────────────────────────────────────────────
+${c.bold}${c.lavender}⚡ LOADING EVENTS${c.reset}
+${c.cyan}────────────────────────────────────────────${c.reset}`
+  );
+
+  // ===== EVENT LOAD =====
   fs.readdirSync(evPath).forEach(file => {
     if (!file.endsWith(".js")) return;
 
@@ -198,20 +240,28 @@ function loadScripts(bot) {
 
       const name = path.parse(file).name;
       const ev = require(path.join(evPath, file));
-      if (typeof ev.run !== "function") return;
+
+      if (typeof ev.run !== "function") {
+        console.log(`${c.yellow}${s.warn} event skipped ${c.bold}${file}${c.reset}`);
+        return;
+      }
 
       const handler = (...args) => ev.run({ bot, event: args[0] });
 
       bot.on(name, handler);
       global.events.set(name, handler);
 
-      console.log("✅ EVENT LOADED:", name);
-    } catch (err) {
-      console.log("❌ EVENT ERROR:", file);
+      console.log(
+        `${c.cyan}${s.ok} event load successfully ${c.bold}${file}${c.reset}`
+      );
+    } catch {
+      console.log(
+        `${c.red}${s.err} event load failed ${c.bold}${file}${c.reset}`
+      );
     }
   });
 
-  // HOT RELOAD
+  // ===== HOT RELOAD =====
   chokidar.watch([cmdPath, evPath]).on("change", file => {
     try {
       delete require.cache[require.resolve(file)];
@@ -221,7 +271,10 @@ function loadScripts(bot) {
         if (!cmd.config?.name) return;
 
         global.commands.set(cmd.config.name, cmd);
-        console.log("♻️ CMD RELOADED:", cmd.config.name);
+
+        console.log(
+          `${c.green}${s.reload} cmd reload ${c.bold}${path.basename(file)}${c.reset}`
+        );
       }
 
       if (file.includes("events")) {
@@ -239,10 +292,14 @@ function loadScripts(bot) {
         bot.on(name, handler);
         global.events.set(name, handler);
 
-        console.log("♻️ EVENT RELOADED:", name);
+        console.log(
+          `${c.cyan}${s.reload} event reload ${c.bold}${name}${c.reset}`
+        );
       }
-    } catch (err) {
-      console.log("❌ RELOAD ERROR:", file);
+    } catch {
+      console.log(
+        `${c.red}${s.err} reload failed ${c.bold}${path.basename(file)}${c.reset}`
+      );
     }
   });
 }
