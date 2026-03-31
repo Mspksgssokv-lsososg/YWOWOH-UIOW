@@ -1,63 +1,112 @@
-const fs = require("fs");
-const path = require("path");
-const express = require("express");
+/**
+ * Main entry point for Bot'Bee
+ */
 
-const c = {
-  reset: "\x1b[0m",
-  cyan: "\x1b[36m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  red: "\x1b[31m",
-  pink: "\x1b[35m",
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
+const TelegramBot = require('node-telegram-bot-api');
+const colors = require('colors');
+const config = require('./config.json');
+
+// Global maps for commands, events, replies
+global.commands = new Map();
+global.events = new Map();
+global.functions = {
+  reply: new Map(),
+  onReply: new Map(),
+  handleEvent: new Map()
 };
 
-// Directories
-const cmdsDir = path.join(__dirname, "scripts", "cmds");
-const eventsDir = path.join(__dirname, "scripts", "events");
+// Load message utility and script loader
+const { messageUtils, loadScripts } = require('./utils/messageUtils.js');
 
-// Function to load JS modules
-function loadJsFiles(dir, type) {
-  if (!fs.existsSync(dir)) {
-    console.warn(`${c.yellow}[WARN]${c.reset} No ${type} directory found: ${dir}`);
-    return;
-  }
-
-  const files = fs.readdirSync(dir).filter(f => f.endsWith(".js"));
-  console.log(`${c.cyan}Loaded ${type}:${c.reset}`);
-  files.forEach(file => {
-    try {
-      require(path.join(dir, file));
-      console.log(`${c.green}[OK]${c.reset} ${file}`);
-    } catch (err) {
-      console.error(`${c.red}[ERROR]${c.reset} Failed to load ${file}: ${err.message}`);
-    }
-  });
-}
+// Initialize bot
+const bot = new TelegramBot(config.token, { polling: true });
+console.log(`[ BOT ] • ${config.botName} started`.green);
 
 // Load all commands and events
-loadJsFiles(cmdsDir, "Commands");
-loadJsFiles(eventsDir, "Events");
+loadScripts(bot);
 
-// Load root-level JS files (index.js, update.js, utils.js, etc.)
-const rootJsFiles = fs.readdirSync(__dirname).filter(f => f.endsWith(".js") && f !== "main.js");
-console.log(`${c.cyan}Loading root JS files:${c.reset}`);
-rootJsFiles.forEach(file => {
+// Bot restart logic
+bot.on('polling_error', (err) => console.error('Polling Error:', err));
+process.on('uncaughtException', (err) => console.error('Uncaught Exception:', err));
+
+// Auto reply handler
+bot.on('message', async (msg) => {
   try {
-    require(path.join(__dirname, file));
-    console.log(`${c.green}[OK]${c.reset} ${file}`);
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const args = msg.text ? msg.text.split(' ').slice(1) : [];
+
+    const replyId = msg.reply_to_message?.message_id;
+
+    // Handle onReply
+    if (replyId && global.functions.reply.has(replyId)) {
+      const Reply = global.functions.reply.get(replyId);
+      const command = commands.get(Reply.commandName);
+      if (command?.reply) {
+        await command.reply({ event: msg, message: messageUtils(bot, msg), args, Reply });
+        return;
+      }
+    }
+
+    // Handle onReply from onReply map
+    if (replyId && global.functions.onReply.has(replyId)) {
+      const Reply = global.functions.onReply.get(replyId);
+      const command = commands.get(Reply.commandName);
+      if (command?.onReply) {
+        await command.onReply({ event: msg, message: messageUtils(bot, msg), args, Reply });
+        return;
+      }
+    }
+
+    // Handle command with prefix
+    const prefix = config.prefix;
+    if (!msg.text) return;
+    if (!msg.text.startsWith(prefix)) return;
+
+    const [cmdName, ...cmdArgs] = msg.text.slice(prefix.length).trim().split(/\s+/);
+    const command = commands.get(cmdName) || Array.from(commands.values()).find(c => c.config.aliases?.includes(cmdName));
+
+    if (!command) return;
+
+    // Execute command
+    await command.run({ event: msg, message: messageUtils(bot, msg), args: cmdArgs });
+
   } catch (err) {
-    console.error(`${c.red}[ERROR]${c.reset} Failed to load ${file}: ${err.message}`);
+    console.error('Message handler error:', err);
   }
 });
 
-// Express server for 24/7 ping
+// Periodic update check (optional)
+const { checkForUpdates } = require('./utils/updateCheck.js');
+setInterval(() => {
+  checkForUpdates();
+}, 1000 * 60 * 5); // check every 5 minutes
+
+// Express server for dashboard
+const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = 3000;
 
-app.get("/", (req, res) => res.send("🤖 Bot is running 24/7 ✅"));
+let users = []; // will be replaced with DB later
+let threads = [];
 
-app.listen(PORT, () => console.log(`${c.cyan}Web server live at http://localhost:${PORT}${c.reset}`));
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/public/index.html');
+});
 
-process.on('unhandledRejection', reason => console.error('💥 Unhandled Rejection:', reason));
+app.get('/dashboard-data', (req, res) => {
+  const uptime = process.uptime();
+  res.json({
+    botName: config.botName,
+    prefix: config.prefix,
+    adminName: config.adminName,
+    totalUsers: users.length,
+    totalThreads: threads.length,
+    uptime
+  });
+});
 
-console.log(`${c.pink}✅ All modules loaded!${c.reset}`);
+app.listen(port, () => console.log(`[ SERVER ] • Running on port ${port}`.cyan));
