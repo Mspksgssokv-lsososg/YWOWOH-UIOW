@@ -1,69 +1,129 @@
 const fs = require('fs');
 const path = require('path');
 
+// FILE PATH
 const dataPath = path.join(__dirname, 'users.json');
 
+// LOAD
 function loadJSONData() {
   try {
-    if (!fs.existsSync(dataPath)) {
-      fs.writeFileSync(dataPath, JSON.stringify([], null, 2));
+    if (fs.existsSync(dataPath)) {
+      return JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+    } else {
+      fs.writeFileSync(dataPath, JSON.stringify([]));
       return [];
     }
-
-    const raw = fs.readFileSync(dataPath, 'utf-8');
-
-    if (!raw || raw.trim() === "") return [];
-
-    let data = JSON.parse(raw);
-
-    if (!Array.isArray(data)) return [];
-
-    return data.filter(u => u && u.userId != null);
-
-  } catch (err) {
-    console.error("❌ JSON Error Fixed:", err.message);
-
-    const backupPath = dataPath + ".backup";
-    fs.copyFileSync(dataPath, backupPath);
-
-    fs.writeFileSync(dataPath, JSON.stringify([], null, 2));
+  } catch (error) {
+    console.error('Error loading JSON:', error);
     return [];
   }
 }
 
+// SAVE
 function saveJSONData(data) {
   try {
     fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.error("❌ Save Error:", err.message);
+  } catch (error) {
+    console.error('Error saving JSON:', error);
   }
 }
 
+let jsonData = loadJSONData();
+
+// ================= EXPORT =================
 module.exports = {
-  getAll: () => loadJSONData(),
-  getAllUsers: () => loadJSONData(), 
 
-  get: (userId) => {
-    const data = loadJSONData();
-    return data.find(u => u.userId == userId);
-  },
-
-  set: (user) => {
-    const data = loadJSONData();
-    const index = data.findIndex(u => u.userId == user.userId);
-
-    if (index !== -1) {
-      data[index] = { ...data[index], ...user };
-    } else {
-      data.push(user);
+  // CREATE
+  async createUser(userData) {
+    try {
+      jsonData.push(userData);
+      saveJSONData(jsonData);
+      return userData;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      return null;
     }
-
-    saveJSONData(data);
   },
 
-  delete: (userId) => {
-    let data = loadJSONData();
-    data = data.filter(u => u.userId != userId);
-    saveJSONData(data);
+  // GET USER
+  async getUser(userId) {
+    try {
+      return jsonData.find(u => u.userId == userId) || null;
+    } catch (error) {
+      console.error('Error getting user:', error);
+      return null;
+    }
+  },
+
+  async get(userId) {
+    return this.getUser(userId);
+  },
+
+  // UPDATE
+  async updateUser(userId, updateData) {
+    try {
+      const index = jsonData.findIndex(u => u.userId == userId);
+      if (index === -1) return null;
+
+      jsonData[index] = {
+        ...jsonData[index],
+        ...updateData
+      };
+
+      saveJSONData(jsonData);
+      return jsonData[index];
+    } catch (error) {
+      console.error('Error updating user:', error);
+      return null;
+    }
+  },
+
+  async setUser(userId, updateData) {
+    return this.updateUser(userId, updateData);
+  },
+
+  async set(userId, updateData) {
+    return this.updateUser(userId, updateData);
+  },
+
+  // DELETE
+  async deleteUser(userId) {
+    try {
+      const index = jsonData.findIndex(u => u.userId == userId);
+      if (index === -1) return null;
+
+      const deleted = jsonData.splice(index, 1);
+      saveJSONData(jsonData);
+      return deleted[0];
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return null;
+    }
+  },
+
+  async delete(userId) {
+    return this.deleteUser(userId);
+  },
+
+  // GET ALL
+  async getAllUsers() {
+    return jsonData;
+  },
+
+  async getAll() {
+    return this.getAllUsers();
+  },
+
+  // GET NAME
+  async getName(userId) {
+    try {
+      const user = await this.getUser(userId);
+      return user
+        ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
+        : 'Telegram user';
+    } catch (error) {
+      console.error('Error getting name:', error);
+      return 'Telegram user';
+    }
   }
 };
