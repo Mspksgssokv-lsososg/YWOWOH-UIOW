@@ -7,7 +7,7 @@ const categories = {
     "https://i.imgur.com/3EXzdzu.mp4",
     "https://i.imgur.com/elsJxEk.mp4",
     "https://i.imgur.com/htitv6P.mp4",
-    "https://i.imgur.com/iD8lpOs.mp4",
+    "https://i.imgur.com/htitv6P.mp4",
     "https://i.imgur.com/PjTN0I5.mp4",
     "https://i.imgur.com/hzFQ4Xu.mp4",
     "https://i.imgur.com/8WojIf7.mp4",
@@ -46,15 +46,29 @@ module.exports = {
     usePrefix: true,
   },
 
-  // ✅ FIXED ENTRY
-  onStart: async ({ bot, message, args }) => {
-    const chatId = message.chat.id;
-    const userId = message.from.id;
+  onStart: async (ctx) => {
+    const { bot, args } = ctx;
+
+    // ✅ SAFE DATA EXTRACTION (NO MORE ERRORS)
+    const chatId =
+      ctx.chatId ||
+      ctx.message?.chat?.id ||
+      ctx.msg?.chat?.id;
+
+    const userId =
+      ctx.userId ||
+      ctx.message?.from?.id ||
+      ctx.msg?.from?.id;
+
+    if (!chatId || !userId) {
+      console.log("❌ chatId বা userId পাওয়া যায়নি", ctx);
+      return;
+    }
 
     const categoryKeys = Object.keys(categories);
     let page = 1;
 
-    if (args.length > 0) {
+    if (args?.length > 0) {
       const inputPage = parseInt(args[0]);
       if (!isNaN(inputPage) && inputPage > 0) page = inputPage;
     }
@@ -79,26 +93,24 @@ module.exports = {
       currentPageCategories
         .map((cat, i) => `┃ ${startIndex + i + 1}. ${cat}`)
         .join("\n") +
-      `\n╰─Page [${page} / ${totalPages}]─╯\n` +
-      `\nReply with number to get video 🤙`;
+      `\n╰─Page [${page} / ${totalPages}]─╯\n\nReply with number 🤙`;
 
     const sentMsg = await bot.sendMessage(chatId, text);
 
-    // ✅ ONE-TIME listener (no memory leak)
+    // ✅ LISTENER
     const replyListener = async (replyMsg) => {
       try {
         if (
-          replyMsg.chat.id !== chatId ||
-          !replyMsg.reply_to_message ||
-          replyMsg.reply_to_message.message_id !== sentMsg.message_id ||
-          replyMsg.from.id !== userId
+          replyMsg.chat?.id !== chatId ||
+          replyMsg.from?.id !== userId ||
+          replyMsg.reply_to_message?.message_id !== sentMsg.message_id
         )
           return;
 
         const num = parseInt(replyMsg.text);
 
         if (isNaN(num) || num < 1 || num > categoryKeys.length) {
-          await bot.sendMessage(chatId, "❌ Invalid input.");
+          await bot.sendMessage(chatId, "❌ Invalid input");
           return cleanup();
         }
 
@@ -139,7 +151,7 @@ module.exports = {
 
     bot.on("message", replyListener);
 
-    // ✅ CLEANUP FUNCTION
+    // ✅ CLEANUP
     const cleanup = () => {
       bot.removeListener("message", replyListener);
       try {
@@ -152,7 +164,7 @@ module.exports = {
   },
 };
 
-// ✅ DOWNLOAD FUNCTION (safe)
+// ✅ DOWNLOAD FUNCTION
 function downloadFile(filePath, url) {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(filePath);
@@ -165,9 +177,7 @@ function downloadFile(filePath, url) {
 
         res.pipe(file);
 
-        file.on("finish", () => {
-          file.close(resolve);
-        });
+        file.on("finish", () => file.close(resolve));
       })
       .on("error", (err) => {
         fs.unlink(filePath, () => {});
