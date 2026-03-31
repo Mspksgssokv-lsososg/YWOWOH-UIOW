@@ -10,12 +10,10 @@ module.exports = {
     usePrefix: false,
   },
 
-  // 🔥 AUTO TRIGGER (main fix)
   onMessage: async ({ bot, chatId, message, messageId }) => {
     try {
       const text = message?.text;
 
-      // 👉 Only run if message contains link
       if (!text || !text.includes("http")) return;
 
       const linkMatch = text.match(/https?:\/\/[^\s]+/);
@@ -23,14 +21,12 @@ module.exports = {
 
       const link = linkMatch[0];
 
-      // 🔥 LOADING MSG
       const waitMsg = await bot.sendMessage(
         chatId,
-        "⏳ 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗜𝗡𝗚...\n━━━━━━━━━━━━━━━",
+        "⏳ 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗜𝗡𝗚",
         { reply_to_message_id: messageId }
       );
 
-      // 🔥 DOWNLOAD API
       const res = await alldown(link);
 
       if (!res || !res.data) {
@@ -46,13 +42,11 @@ module.exports = {
 
       const title = data.title || "No Title";
 
-      // 🔥 STREAM VIDEO (no file save = fast)
       const vid = await axios.get(videoUrl, {
         responseType: "stream",
         timeout: 60000,
       });
 
-      // 🔥 BUTTON
       const replyMarkup = {
         inline_keyboard: [
           [{ text: "📞 CONTACT ADMIN", url: "https://t.me/busy1here" }],
@@ -60,15 +54,13 @@ module.exports = {
       };
 
       const caption = `
-╭━━━〔 🎬 MEDIA DOWNLOADER 〕━━━╮
+╭━━〔 DOWNLOADER 〕━━╮
 ┃ 🎬 Title : ${title}
-┃ ⚡ Status : ✅ Completed
+┃ ⚡ Status : Completed ✅
 ╰━━━〔 🤖 SIDDIK BOT 〕━━━╯`;
 
-      // 🔥 DELETE LOADING
       await bot.deleteMessage(chatId, waitMsg.message_id).catch(() => {});
 
-      // 🔥 SEND VIDEO
       await bot.sendVideo(chatId, vid.data, {
         caption,
         reply_to_message_id: messageId,
