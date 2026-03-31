@@ -2,6 +2,10 @@ const TelegramBot = require("node-telegram-bot-api");
 const config = require("./config.json");
 const { loadScripts, messageUtils } = require("./utils");
 
+// 🔥 utils global
+const utils = require("./utils");
+global.utils = utils;
+
 const usersData = require("./database/users");
 const threadsData = require("./database/threads");
 
@@ -11,8 +15,7 @@ const bot = new TelegramBot(token, { polling: true });
 // 🌍 GLOBAL
 global.commands = new Map();
 global.events = new Map();
-
-global.config = config; // 🔥 important (prefix access everywhere)
+global.config = config;
 
 global.functions = {
   reply: new Map(),
@@ -50,7 +53,7 @@ bot.on("message", async (msg) => {
     if (config.white_list_group?.enable &&
         !config.white_list_group.groups.includes(chatId)) return;
 
-    // 👥 GROUP ADMIN
+    // 👥 GROUP ADMIN CHECK
     let isAdmin = false;
     if (msg.chat.type !== "private") {
       try {
@@ -63,12 +66,13 @@ bot.on("message", async (msg) => {
     const replyMsgId = msg.reply_to_message?.message_id;
 
     if (replyMsgId) {
-      const replyData =
+      const data =
         global.functions.reply.get(replyMsgId) ||
         global.functions.onReply.get(replyMsgId);
 
-      if (replyData) {
-        const command = global.commands.get(replyData.commandName);
+      if (data) {
+        const command = global.commands.get(data.commandName);
+
         if (command?.onReply || command?.reply) {
           return await (command.onReply || command.reply)({
             bot,
@@ -76,7 +80,7 @@ bot.on("message", async (msg) => {
             msg,
             message,
             args: text.split(" "),
-            Reply: replyData,
+            Reply: data,
             usersData,
             threadsData
           });
@@ -113,7 +117,7 @@ bot.on("message", async (msg) => {
 
     if (!command) return;
 
-    // 🔒 ROLE CHECK
+    // 🔒 ROLE SYSTEM
     const role = command.config?.role ?? 0;
 
     if (role === 2 && !isBotAdmin)
@@ -125,7 +129,7 @@ bot.on("message", async (msg) => {
     if (role === 3 && !isBotAdmin && !isOperator)
       return message.reply("⚠️ | Operator only!");
 
-    // ▶️ RUN
+    // ▶️ RUN COMMAND
     try {
       if (command.onStart)
         await command.onStart({ bot, event: msg, msg, args, message, usersData, threadsData });
