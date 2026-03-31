@@ -1,8 +1,6 @@
 const path = require("path");
-const axios = require('axios');
-const fs = require('fs-extra');
-const chokidar = require('chokidar');
-const config = require('./config.json');
+const fs = require("fs-extra");
+const chokidar = require("chokidar");
 
 // ================= MESSAGE =================
 function message(bot, msg) {
@@ -48,13 +46,12 @@ function message(bot, msg) {
 // ================= LOAD SCRIPTS =================
 function loadScripts(bot) {
 
-  // ✅ FIXED PATH
   const commandsPath = path.join(__dirname, "scripts", "cmds");
   const eventsPath = path.join(__dirname, "scripts", "events");
 
   // ===== COMMAND LOAD =====
   if (!fs.existsSync(commandsPath)) {
-    console.log("❌ cmds folder not found!".red);
+    console.log("❌ cmds folder not found!");
     return;
   }
 
@@ -73,9 +70,9 @@ function loadScripts(bot) {
     }
   }
 
-  // ===== EVENT LOAD =====
+  // ===== EVENT LOAD (FIXED) =====
   if (!fs.existsSync(eventsPath)) {
-    console.log("❌ events folder not found!".red);
+    console.log("❌ events folder not found!");
     return;
   }
 
@@ -86,7 +83,17 @@ function loadScripts(bot) {
       const event = require(path.join(eventsPath, file));
       const eventName = file.replace(".js", "");
 
-      bot.on(eventName, event);
+      if (typeof event.run !== "function") {
+        console.log(`❌ Event ${file} has no run function`);
+        continue;
+      }
+
+      bot.on(eventName, (msg) => {
+        event.run({
+          bot,
+          event: msg
+        });
+      });
 
       global.events.set(eventName, event);
       console.log(`✅ Event: ${eventName}`);
@@ -102,16 +109,30 @@ function loadScripts(bot) {
     try {
       const fileName = path.basename(filePath, ".js");
 
+      // ===== COMMAND RELOAD =====
       if (filePath.includes("cmds")) {
         const cmd = require(filePath);
+
+        if (!cmd.config || !cmd.run) return;
+
         global.commands.set(cmd.config.name, cmd);
         console.log(`♻️ Reloaded command: ${fileName}`);
       }
 
+      // ===== EVENT RELOAD (FIXED) =====
       if (filePath.includes("events")) {
         const ev = require(filePath);
+
+        if (typeof ev.run !== "function") return;
+
         bot.removeAllListeners(fileName);
-        bot.on(fileName, ev);
+
+        bot.on(fileName, (msg) => {
+          ev.run({
+            bot,
+            event: msg
+          });
+        });
 
         global.events.set(fileName, ev);
         console.log(`♻️ Reloaded event: ${fileName}`);
