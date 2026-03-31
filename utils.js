@@ -2,15 +2,19 @@ const path = require("path");
 const axios = require("axios");
 const fs = require("fs-extra");
 const chokidar = require("chokidar");
-const config = require("./config.json");
 
+// ================= EXTENSION =================
 async function getExtensionFromUrl(mediaUrl) {
-  const response = await axios.get(mediaUrl, { responseType: "stream" });
-  const type = response.headers["content-type"];
-  return getExtensionFromMimeType(type) || path.extname(new URL(mediaUrl).pathname);
+  try {
+    const response = await axios.get(mediaUrl, { responseType: "stream" });
+    const type = response.headers["content-type"];
+    return getExtensionFromMimeType(type) || path.extname(new URL(mediaUrl).pathname);
+  } catch {
+    return path.extname(mediaUrl);
+  }
 }
 
-function getExtensionFromMimeType(mimeType) {
+function getExtensionFromMimeType(mimeType = "") {
   const map = {
     "video/mp4": ".mp4",
     "image/jpeg": ".jpg",
@@ -22,11 +26,13 @@ function getExtensionFromMimeType(mimeType) {
   return map[mimeType] || "";
 }
 
+// ================= DOWNLOAD =================
 async function downloadFile(url, downloadPath) {
   const res = await axios.get(url, { responseType: "arraybuffer" });
   fs.writeFileSync(downloadPath, Buffer.from(res.data));
 }
 
+// ================= MESSAGE UTILS =================
 function message(bot, msg) {
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
@@ -36,6 +42,7 @@ function message(bot, msg) {
       typeof err === "object"
         ? `${err.name}: ${err.message}`
         : err;
+
     return bot.sendMessage(chatId, `❌ | ${text}`, {
       reply_to_message_id: messageId
     });
@@ -52,33 +59,35 @@ function message(bot, msg) {
       }).catch(sendErr),
 
     unsend: async (id) =>
-      bot.deleteMessage(chatId, id).catch(sendErr),
+      bot.deleteMessage(chatId, id).catch(() => {}),
 
+    // ✅ FIXED STREAM
     stream: async ({ url, caption = "" }) => {
       try {
         const ext = url.startsWith("http")
           ? await getExtensionFromUrl(url)
           : path.extname(url);
 
-        if ([".jpg", ".png"].includes(ext))
+        if ([".jpg", ".jpeg", ".png"].includes(ext))
           return bot.sendPhoto(chatId, url, { caption });
 
         if ([".mp4"].includes(ext))
           return bot.sendVideo(chatId, url, { caption });
 
-        if ([".mp3"].includes(ext))
+        if ([".mp3", ".wav"].includes(ext))
           return bot.sendAudio(chatId, url, { caption });
 
-        throw new Error("Unsupported media");
+        throw new Error("Unsupported media type");
       } catch (e) {
-        sendErr(e);
+        return sendErr(e);
       }
     },
 
+    // ✅ FIXED DOWNLOAD TEMP NAME
     download: async ({ url, mimeType }) => {
       try {
         const ext = getExtensionFromMimeType(mimeType) || ".tmp";
-        const file = path.join(process.cwd(), "temp" + ext);
+        const file = path.join(process.cwd(), `temp_${Date.now()}${ext}`);
 
         await downloadFile(url, file);
 
@@ -91,9 +100,9 @@ function message(bot, msg) {
         else if (mimeType.startsWith("audio"))
           await bot.sendAudio(chatId, file);
 
-        fs.remove(file);
+        await fs.remove(file);
       } catch (e) {
-        sendErr(e);
+        return sendErr(e);
       }
     },
 
@@ -106,6 +115,7 @@ function message(bot, msg) {
   };
 }
 
+// ================= LOAD SCRIPTS =================
 function loadScripts(bot) {
   const cmdPath = path.join(process.cwd(), "scripts", "cmds");
   const evPath = path.join(process.cwd(), "scripts", "events");
@@ -123,6 +133,7 @@ function loadScripts(bot) {
     return;
   }
 
+  // ================= COMMAND =================
   fs.readdirSync(cmdPath).forEach(file => {
     if (!file.endsWith(".js")) return;
 
@@ -141,12 +152,18 @@ function loadScripts(bot) {
     }
   });
 
+  // ================= EVENTS =================
   fs.readdirSync(evPath).forEach(file => {
     if (!file.endsWith(".js")) return;
 
     try {
       const name = path.parse(file).name;
       const ev = require(path.join(evPath, file));
+
+      if (typeof ev.run !== "function") {
+        console.log("❌ Invalid event:", file);
+        return;
+      }
 
       const handler = (...args) => ev.run({ bot, event: args[0] });
 
@@ -159,6 +176,7 @@ function loadScripts(bot) {
     }
   });
 
+  // ================= WATCHER =================
   chokidar.watch([cmdPath, evPath]).on("change", (file) => {
     try {
       delete require.cache[require.resolve(file)];
@@ -174,9 +192,14 @@ function loadScripts(bot) {
       if (file.includes("events")) {
         const name = path.parse(file).name;
 
-        bot.removeListener(name, global.events.get(name));
+        if (global.events.has(name)) {
+          bot.removeListener(name, global.events.get(name));
+        }
 
         const ev = require(file);
+
+        if (typeof ev.run !== "function") return;
+
         const handler = (...args) => ev.run({ bot, event: args[0] });
 
         bot.on(name, handler);
@@ -190,6 +213,7 @@ function loadScripts(bot) {
   });
 }
 
+// ================= EXPORT =================
 module.exports = {
   messageUtils: message,
   loadScripts
