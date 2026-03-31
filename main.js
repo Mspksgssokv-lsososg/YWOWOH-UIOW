@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
 const colors = require('colors');
@@ -32,7 +31,7 @@ try {
 }
 
 // ================= LOAD SCRIPTS =================
-loadScripts(bot, config);
+loadScripts(bot);
 
 // ================= EXPRESS SERVER =================
 const app = express();
@@ -40,12 +39,12 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Dashboard route
+// Home
 app.get('/', (req, res) => {
   res.send("🤖 Bot is running...");
 });
 
-// Info API
+// Dashboard
 app.get('/dashboard', (req, res) => {
   res.json({
     botName: config.botName || "Telegram Bot",
@@ -57,28 +56,19 @@ app.get('/dashboard', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🌐 Server running on port ${PORT}`.cyan);
-});
+// ⚠️ FIXED (avoid port conflict)
+if (!process.env.PORT) {
+  app.listen(PORT, () => {
+    console.log(`🌐 Server running on port ${PORT}`.cyan);
+  });
+}
 
-// ================= MESSAGE HANDLER =================
+// ================= MESSAGE (COMMAND ONLY) =================
 bot.on('message', async (msg) => {
   const text = msg.text || '';
   const prefix = config.prefix;
 
-  // ===== RUN EVENTS =====
-  for (const event of global.events.values()) {
-    try {
-      event.run?.({
-        bot,
-        event: msg
-      });
-    } catch (err) {
-      console.error("❌ Event error:", err);
-    }
-  }
-
-  // ===== COMMAND CHECK =====
+  // Only command
   if (!text.startsWith(prefix)) return;
 
   const args = text.slice(prefix.length).trim().split(/ +/);
@@ -105,7 +95,7 @@ bot.on('message', async (msg) => {
   }
 });
 
-// ================= CALLBACK (BUTTON REPLY SYSTEM) =================
+// ================= CALLBACK (BUTTON REPLY) =================
 bot.on('callback_query', async (query) => {
   const msgId = query.message.message_id;
 
