@@ -106,6 +106,26 @@ bot.on("message", async (msg) => {
       }
     }
 
+    // ================= AUTO MESSAGE (NEW) =================
+    for (let cmd of global.commands.values()) {
+      try {
+        if (cmd.onMessage) {
+          await cmd.onMessage({
+            bot,
+            chatId,
+            userId,
+            message: msg,
+            messageId: msg.message_id,
+            text,
+            usersData,
+            threadsData
+          });
+        }
+      } catch (e) {
+        console.log("❌ onMessage Error:", e);
+      }
+    }
+
     // ================= COMMAND SYSTEM =================
     let commandName, args;
 
@@ -127,9 +147,8 @@ bot.on("message", async (msg) => {
 
     // ✅ usePrefix CONTROL
     if (command.config?.usePrefix === true && !text.startsWith(prefix)) return;
-    // ❗ false / undefined → both allow
 
-    // ================= COOLDOWN SYSTEM =================
+    // ================= COOLDOWN =================
     const cooldownTime = (command.config?.cooldown || 0) * 1000;
 
     if (cooldownTime > 0) {
@@ -143,7 +162,7 @@ bot.on("message", async (msg) => {
 
       if (now < expirationTime) {
         const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
-        return message.reply(`⏳ | Please wait ${timeLeft}s before using this command again.`);
+        return message.reply(`⏳ | Please wait ${timeLeft}s`);
       }
 
       timestamps.set(userId, now + cooldownTime);
