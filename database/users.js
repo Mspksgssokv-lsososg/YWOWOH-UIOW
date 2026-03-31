@@ -12,19 +12,13 @@ function loadJSONData() {
 
     const raw = fs.readFileSync(dataPath, 'utf-8');
 
-    if (!raw || raw.trim() === "") {
-      return [];
-    }
+    if (!raw || raw.trim() === "") return [];
 
     let data = JSON.parse(raw);
 
     if (!Array.isArray(data)) return [];
 
-    data = data.filter(user => {
-      return user && user.userId !== undefined && user.userId !== null;
-    });
-
-    return data;
+    return data.filter(u => u && u.userId != null);
 
   } catch (err) {
     console.error("❌ JSON Error Fixed:", err.message);
@@ -33,7 +27,6 @@ function loadJSONData() {
     fs.copyFileSync(dataPath, backupPath);
 
     fs.writeFileSync(dataPath, JSON.stringify([], null, 2));
-
     return [];
   }
 }
@@ -48,6 +41,7 @@ function saveJSONData(data) {
 
 module.exports = {
   getAll: () => loadJSONData(),
+  getAllUsers: () => loadJSONData(), 
 
   get: (userId) => {
     const data = loadJSONData();
@@ -56,7 +50,6 @@ module.exports = {
 
   set: (user) => {
     const data = loadJSONData();
-
     const index = data.findIndex(u => u.userId == user.userId);
 
     if (index !== -1) {
