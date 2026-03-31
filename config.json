@@ -12,12 +12,12 @@
     "json": true
   },
 
-  "adminBot": [
-    "6734899387"
+  "admins": [
+    6734899387
   ],
 
   "botOperator": [
-    "6734899387"
+    6734899387
   ],
 
   "inbox": true,
@@ -45,7 +45,7 @@
 
   "premium_list_ID": {
     "enable": false,
-    "IDs": [
+    "IDS": [
       777888999
     ]
   },
