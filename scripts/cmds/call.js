@@ -1,6 +1,5 @@
 const { admins, botOperator } = global.config;
 
-// 🔥 Symbol / Message System
 const messages = {
   success: (count) => `✅ | Sent your message to ${count} admin successfully!`,
   failed: (count) => `❌ | Failed to send message to ${count} admin\nCheck console`,
@@ -32,7 +31,7 @@ module.exports.config = {
   aliases: ["report"],
   version: "4.0.0",
   role: 0,
-  author: "dipto",
+  author: "SK-SIDDIK-KHAN",
   description: "Send a call/report to bot admins and operators.",
   usePrefix: true,
   guide: "[message]",
@@ -40,13 +39,11 @@ module.exports.config = {
   countDown: 5,
 };
 
-// ================== REPLY SYSTEM ==================
 module.exports.onReply = async ({ bot, message, event, Reply, usersData }) => {
   const { type, target, message_ID, author } = Reply;
 
   try {
 
-    // 🔁 ADMIN → USER
     if (
       type === "adminReply" &&
       (admins.includes(event.from.id) || botOperator.includes(event.from.id))
@@ -71,7 +68,6 @@ module.exports.onReply = async ({ bot, message, event, Reply, usersData }) => {
       return message.reply(messages.replyUserSuccess);
     }
 
-    // 🔁 USER → ADMIN
     if (type === "userReply") {
       const userName = await usersData.getName(event.from.id);
       const text = event.text;
@@ -98,7 +94,6 @@ module.exports.onReply = async ({ bot, message, event, Reply, usersData }) => {
   }
 };
 
-// ================== START ==================
 module.exports.onStart = async ({ bot, message, args, event, usersData }) => {
   try {
     const author = event.from.id;
