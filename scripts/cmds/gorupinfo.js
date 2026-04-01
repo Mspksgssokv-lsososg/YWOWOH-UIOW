@@ -1,8 +1,8 @@
 module.exports = {
   config: {
     name: "groupinfo",
-    aliases: ["boxinfo"],
-    version: "2.0.0",
+    aliases: ["grpinfo"],
+    version: "2.1.0",
     author: "SK-SIDDIK-KHAN",
     description: "Get group information",
     category: "group",
@@ -14,29 +14,41 @@ module.exports = {
     const chatId = msg.chat.id;
 
     if (msg.chat.type === "private") {
-      return message.reply("❌ | This command only works in groups");
+      return message.reply("❌ | Only works in groups");
     }
 
     try {
       const chat = await bot.getChat(chatId);
-      const memberCount = await bot.getChatMemberCount(chatId);
-      const admins = await bot.getChatAdministrators(chatId);
+
+      let memberCount = "Unknown";
+      try {
+        memberCount = await bot.getChatMemberCount(chatId);
+      } catch {
+        memberCount = "N/A";
+      }
+
+      let admins = [];
+      try {
+        admins = await bot.getChatAdministrators(chatId);
+      } catch {
+        admins = [];
+      }
 
       const escape = (text = "") =>
         text.toString().replace(/([_*[\]()~`>#+\-=|{}.!])/g, "\\$1");
 
-      const adminList = admins
-        .map(a => {
-          const name = a.user.username
-            ? `@${escape(a.user.username)}`
-            : escape(a.user.first_name);
-          return `┃ 👤 ${name}`;
-        })
-        .join("\n");
+      const adminList = admins.length
+        ? admins.map(a => {
+            const name = a.user.username
+              ? `@${escape(a.user.username)}`
+              : escape(a.user.first_name);
+            return `┃ 👤 ${name}`;
+          }).join("\n")
+        : "┃ ❌ No admin data";
 
       let text = `
 ╭━━━〔 👥 GROUP INFO 〕━━━╮
-┃ 🏷️ Name   : ${escape(chat.title)}
+┃ 🏷️ Name   : ${escape(chat.title || "Unknown")}
 ┃ 🆔 ID     : \`${chatId}\`
 ┃ 👥 Members: ${memberCount}
 ┣━━━━━━━━━━━━━━━━━━━
@@ -45,7 +57,7 @@ ${adminList}
 ╰━━━━━━━━━━━━━━━━━━━╯
 `;
 
-      if (chat.photo) {
+      if (chat.photo?.big_file_id) {
         await bot.sendPhoto(chatId, chat.photo.big_file_id, {
           caption: text,
           parse_mode: "MarkdownV2"
@@ -57,8 +69,8 @@ ${adminList}
       }
 
     } catch (err) {
-      console.log("❌ groupinfo error:", err);
-      message.reply("❌ | Failed to get group info");
+      console.log("❌ FULL ERROR:", err);
+      message.reply("❌ | Bot needs admin permission or API failed");
     }
   }
 };
