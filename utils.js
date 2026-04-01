@@ -91,7 +91,6 @@ function loadScripts(bot) {
   if (!fs.existsSync(cmdPath)) fs.mkdirSync(cmdPath, { recursive: true });
   if (!fs.existsSync(evPath)) fs.mkdirSync(evPath, { recursive: true });
 
-  // ================= COMMAND LOAD =================
   console.log(`\n🚀 LOADING COMMANDS\n`);
 
   fs.readdirSync(cmdPath).forEach(file => {
@@ -110,7 +109,6 @@ function loadScripts(bot) {
     }
   });
 
-  // ================= EVENT LOAD =================
   console.log(`\n⚡ LOADING EVENTS\n`);
 
   fs.readdirSync(evPath).forEach(file => {
@@ -123,7 +121,6 @@ function loadScripts(bot) {
 
       if (typeof ev.run !== "function") return;
 
-      // 🔥 MAIN FIX
       const eventName = ev.event || "message";
 
       const handler = (event) => ev.run({ bot, event });
@@ -141,7 +138,6 @@ function loadScripts(bot) {
     }
   });
 
-  // ================= AUTO RELOAD =================
   chokidar.watch([cmdPath, evPath]).on("change", file => {
     try {
       delete require.cache[require.resolve(file)];
