@@ -5,9 +5,9 @@ module.exports = {
   config: {
     name: "song",
     aliases: ["music", "play"],
-    version: "5.0.0",
+    version: "6.0.0",
     author: "SK-SIDDIK-KHAN",
-    description: "Search and download song with button",
+    description: "Download song with button",
     category: "media",
     role: 0,
     usePrefix: true
@@ -32,7 +32,6 @@ module.exports = {
         return bot.sendMessage(chatId, "❌ | Song not found");
       }
 
-      // 🎵 List Message
       let text = `🎧 𝗦𝗢𝗡𝗚 𝗟𝗜𝗦𝗧\n\n`;
       const buttons = [];
 
@@ -46,13 +45,10 @@ module.exports = {
       });
 
       const sent = await bot.sendMessage(chatId, text, {
-        reply_markup: {
-          inline_keyboard: buttons
-        },
+        reply_markup: { inline_keyboard: buttons },
         reply_to_message_id: msg.message_id
       });
 
-      // 🔥 Save handler
       global.client.handleButton.push({
         name: this.config.name,
         messageID: sent.message_id,
@@ -62,16 +58,14 @@ module.exports = {
 
     } catch (err) {
       console.log(err);
-      bot.sendMessage(chatId, "❌ | Error fetching songs");
+      bot.sendMessage(chatId, "❌ | Search error");
     }
   },
 
-  // 🔥 BUTTON CLICK
   handleButton: async ({ bot, query, handleButton }) => {
     try {
       const userId = query.from.id;
 
-      // ❌ Only command user can click
       if (userId !== handleButton.author) {
         return bot.answerCallbackQuery(query.id, {
           text: "❌ | Not your request",
@@ -79,37 +73,30 @@ module.exports = {
         });
       }
 
+      await bot.answerCallbackQuery(query.id);
+
       const index = parseInt(query.data.split("_")[1]);
       const video = handleButton.videos[index];
 
-      if (!video) {
-        return bot.answerCallbackQuery(query.id, {
-          text: "❌ | Invalid selection",
-          show_alert: true
-        });
-      }
+      if (!video) return;
 
       const chatId = query.message.chat.id;
 
-      await bot.sendMessage(chatId, "⏳ | Downloading...");
+      const wait = await bot.sendMessage(chatId, "⏳ | Downloading audio...");
 
-      // 🔥 WORKING API
-      const api = `https://yt-downloader-music.vercel.app/?url=https://www.youtube.com/watch?v=${video.id}`;
+      // 🔥 WORKING API (stable)
+      const api = `https://api.vevioz.com/api/button/mp3/${video.id}`;
 
-      const res = await axios.get(api);
-
-      if (!res.data || !res.data.audio) {
-        return bot.sendMessage(chatId, "❌ | Download failed");
-      }
-
-      // 🎧 Send Audio
-      await bot.sendAudio(chatId, res.data.audio, {
-        title: video.title
+      // 🎧 direct send (no file save)
+      await bot.sendAudio(chatId, api, {
+        caption: `🎧 ${video.title}`
       });
+
+      await bot.deleteMessage(chatId, wait.message_id);
 
     } catch (err) {
       console.log(err);
-      bot.sendMessage(query.message.chat.id, "❌ | Error downloading");
+      bot.sendMessage(query.message.chat.id, "❌ | Download failed");
     }
   }
 };
