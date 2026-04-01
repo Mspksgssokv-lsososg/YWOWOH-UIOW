@@ -86,11 +86,6 @@ bot.on("message", async (msg) => {
  
     const isBotAdmin = (config.admins || []).includes(userId);
     const isOperator = (config.botOperator || []).includes(userId);
-    if (config.adminOnly?.enable) {
-  if (!isBotAdmin && !isOperator) {
-    return; 
-  }
-}
  
     if (config.ignore_list_ID?.enable &&
         config.ignore_list_ID.IDS.includes(userId)) return;
@@ -313,3 +308,5 @@ DEFINITELY BY SK SIDDIK ━━━━━━━━━━♡
 ┣➤Owner  : ${config.owner}
 ┗━━━━━━━━━━━━━━━━𝗘𝗡𝗝𝗢𝗬━━━━━━━━━━━━━┛
 `);
+ 
+ 
