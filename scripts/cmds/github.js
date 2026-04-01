@@ -1,11 +1,17 @@
 const axios = require("axios");
 const moment = require("moment");
 
+function autoDelete(bot, chatId, messageId, time = 5000) {
+  setTimeout(() => {
+    bot.deleteMessage(chatId, messageId).catch(() => {});
+  }, time);
+}
+
 module.exports = {
   config: {
     name: "github",
-    aliases: ["git", "gh"],
-    version: "3.0",
+    aliases: ["gitinfo", "githubinfo"],
+    version: "3.2",
     author: "SK-SIDDIK-KHAN",
     cooldown: 5,
     role: 0,
@@ -18,7 +24,8 @@ module.exports = {
     const chatId = event.chat.id;
 
     if (!args[0]) {
-      return message.reply("⚠️ | Usage: /github <username>");
+      const msg = await bot.sendMessage(chatId, "⚠️ | Usage: /github <username>");
+      return autoDelete(bot, chatId, msg.message_id);
     }
 
     const username = args[0];
@@ -27,11 +34,16 @@ module.exports = {
     try {
       const waitMsg = await bot.sendMessage(chatId, "⏳ | Fetching GitHub data...");
 
-      const res = await axios.get(api);
+      const res = await axios.get(api, {
+        headers: { "User-Agent": "Mozilla/5.0" } 
+      });
+
       const user = res.data;
 
       if (!user || !user.login) {
-        return bot.sendMessage(chatId, "❌ | User not found");
+        await bot.deleteMessage(chatId, waitMsg.message_id).catch(() => {});
+        const msg = await bot.sendMessage(chatId, "❌ | User not found");
+        return autoDelete(bot, chatId, msg.message_id);
       }
 
       const info = 
@@ -45,8 +57,8 @@ module.exports = {
 ╰‣🎀 𝗙𝗼𝗹𝗹𝗼𝘄𝗲𝗿𝘀: ${user.followers}
 ╰‣🔖 𝗙𝗼𝗹𝗹𝗼𝘄𝗶𝗻𝗴: ${user.following}
 ╰‣🌎 𝗟𝗼𝗰𝗮𝘁𝗶𝗼𝗻: ${user.location || "No Location"}
-╰‣📌 𝗔𝗰𝗰𝗼𝘂𝗻𝘁 𝗖𝗿𝗲𝗮𝘁𝗲𝗱: ${moment.utc(user.created_at).format("dddd, MMMM Do YYYY")}
-╰‣♻ 𝗔𝗰𝗰𝗼𝘂𝗻𝘁 𝗨𝗽𝗱𝗮𝘁𝗲𝗱: ${moment.utc(user.updated_at).format("dddd, MMMM Do YYYY")}
+╰‣📌 𝗔𝗰𝗰𝗼𝘂𝗨𝗻𝘁 𝗖𝗿𝗲𝗮𝘁𝗲𝗱: ${moment.utc(user.created_at).format("dddd, MMMM Do YYYY")}
+╰‣♻ 𝗔𝗰𝗰𝗼𝘂𝗨𝗻𝘁 𝗨𝗽𝗱𝗮𝘁𝗲𝗱: ${moment.utc(user.updated_at).format("dddd, MMMM Do YYYY")}
 ╰‣🔗 𝗣𝗿𝗼𝗳𝗶𝗹𝗲: ${user.html_url}
 
 ⊙──── [ 𝐒𝐊 𝐒𝐈𝐃𝐃𝐈𝐊 ] ────⊙`;
@@ -55,11 +67,18 @@ module.exports = {
         caption: info
       });
 
-      await bot.deleteMessage(chatId, waitMsg.message_id);
+      await bot.deleteMessage(chatId, waitMsg.message_id).catch(() => {});
 
     } catch (err) {
-      console.log(err);
-      bot.sendMessage(chatId, "❌ | Failed to fetch GitHub user");
+      console.log("GitHub Error:", err.response?.status || err.message);
+
+      if (err.response?.status === 404) {
+        const msg = await bot.sendMessage(chatId, "❌ | User not found");
+        return autoDelete(bot, chatId, msg.message_id);
+      }
+
+      const msg = await bot.sendMessage(chatId, "❌ | Failed to fetch GitHub user");
+      autoDelete(bot, chatId, msg.message_id);
     }
   }
 };
