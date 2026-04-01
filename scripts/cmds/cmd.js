@@ -2,28 +2,11 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 
-const configPath = path.join(__dirname, "..", "..", "config.json");
-
-function loadConfig() {
-  try {
-    const configData = fs.readFileSync(configPath, "utf-8");
-    const config = JSON.parse(configData);
-
-    // ✅ FIX: admins ensure
-    if (!Array.isArray(config.admins)) config.admins = [];
-
-    return config;
-  } catch (error) {
-    console.error("Error loading config.json:", error);
-    return { admins: [] };
-  }
-}
-
 module.exports = {
   config: {
     name: "cmd",
     aliases: ["command"],
-    version: "2.0.0",
+    version: "3.0.0",
     author: "SK-SIDDIK-KHAN",
     description: "Manage commands system",
     usage: "cmd <install|loadall|load|unload|reload>",
@@ -32,11 +15,11 @@ module.exports = {
     usePrefix: true
   },
 
-  async onStart({ message, args, userId }) {
-    const config = loadConfig();
+  async onStart({ message, args, event }) {
+    const userId = event.from.id;
 
-    // ✅ FIX: same system as main.js
-    const isBotAdmin = (config.admins || []).includes(userId);
+    // ✅ MAIN.JS STYLE ADMIN CHECK (NO CONFIG LOAD)
+    const isBotAdmin = (global.config.admins || []).some(id => String(id) === String(userId));
 
     if (!isBotAdmin) {
       return message.reply("❌ | Only bot admin can use this command.");
@@ -44,29 +27,33 @@ module.exports = {
 
     const subcmd = args[0]?.toLowerCase();
     const cmdFolder = __dirname;
-
-    // ✅ FIX: use global.commands (main.js)
     const commands = global.commands;
 
     if (!subcmd) {
       return message.reply("⚠️ Usage: cmd <install|loadall|load|unload|reload>");
     }
 
-    function clearRequireCache(filePath) {
+    function clearCache(filePath) {
       try {
         delete require.cache[require.resolve(filePath)];
       } catch {}
     }
 
-    function registerCommand(cmd) {
+    function register(cmd) {
       if (!cmd?.config?.name) return false;
 
       const name = cmd.config.name.toLowerCase();
+
+      // remove old aliases if reload
+      commands.forEach((value, key) => {
+        if (value === cmd) commands.delete(key);
+      });
+
       commands.set(name, cmd);
 
       if (Array.isArray(cmd.config.aliases)) {
-        cmd.config.aliases.forEach(alias => {
-          commands.set(alias.toLowerCase(), cmd);
+        cmd.config.aliases.forEach(a => {
+          commands.set(a.toLowerCase(), cmd);
         });
       }
 
@@ -88,10 +75,10 @@ module.exports = {
         const res = await axios.get(url);
         fs.writeFileSync(filePath, res.data);
 
-        clearRequireCache(filePath);
+        clearCache(filePath);
         const cmd = require(filePath);
 
-        if (!registerCommand(cmd)) {
+        if (!register(cmd)) {
           fs.unlinkSync(filePath);
           return message.reply("❌ Invalid command");
         }
@@ -101,8 +88,6 @@ module.exports = {
 
       // ================= LOAD ALL =================
       if (subcmd === "loadall") {
-        commands.clear();
-
         const files = fs.readdirSync(cmdFolder).filter(f => f.endsWith(".js"));
 
         let ok = 0, fail = 0;
@@ -111,13 +96,14 @@ module.exports = {
           try {
             const filePath = path.join(cmdFolder, file);
 
-            clearRequireCache(filePath);
+            clearCache(filePath);
             const cmd = require(filePath);
 
-            if (registerCommand(cmd)) ok++;
+            if (register(cmd)) ok++;
             else fail++;
 
-          } catch {
+          } catch (e) {
+            console.log("LoadAll Error:", e.message);
             fail++;
           }
         }
@@ -134,12 +120,9 @@ module.exports = {
         if (!cmd) return message.reply("❌ Not found");
 
         const realName = cmd.config.name.toLowerCase();
-        const filePath = path.join(cmdFolder, realName + ".js");
 
         commands.delete(realName);
         (cmd.config.aliases || []).forEach(a => commands.delete(a));
-
-        clearRequireCache(filePath);
 
         return message.reply(`✅ Unloaded ${realName}`);
       }
@@ -151,11 +134,11 @@ module.exports = {
 
         const filePath = path.join(cmdFolder, name + ".js");
 
-        clearRequireCache(filePath);
+        clearCache(filePath);
         const cmd = require(filePath);
 
-        if (!registerCommand(cmd))
-          return message.reply("❌ Invalid");
+        if (!register(cmd))
+          return message.reply("❌ Invalid command");
 
         return message.reply(`✅ Loaded ${name}`);
       }
@@ -167,11 +150,11 @@ module.exports = {
 
         const filePath = path.join(cmdFolder, name + ".js");
 
-        clearRequireCache(filePath);
+        clearCache(filePath);
         const cmd = require(filePath);
 
-        if (!registerCommand(cmd))
-          return message.reply("❌ Invalid");
+        if (!register(cmd))
+          return message.reply("❌ Invalid command");
 
         return message.reply(`🔄 Reloaded ${name}`);
       }
@@ -179,7 +162,7 @@ module.exports = {
       return message.reply("❌ Invalid subcommand");
 
     } catch (err) {
-      console.error(err);
+      console.error("CMD ERROR:", err);
       return message.reply("❌ Error: " + err.message);
     }
   }
