@@ -6,44 +6,24 @@ const chokidar = require("chokidar");
 const c = {
   reset: "\x1b[0m",
   bold: "\x1b[1m",
-
   red: "\x1b[31m",
   green: "\x1b[32m",
   yellow: "\x1b[33m",
   cyan: "\x1b[36m",
-  white: "\x1b[37m",
-
   pink: "\x1b[38;5;213m",
-  mint: "\x1b[38;5;121m",
-  lavender: "\x1b[38;5;183m",
-  orange: "\x1b[38;5;208m"
+  lavender: "\x1b[38;5;183m"
 };
 
 const s = {
   ok: "✅",
   err: "❌",
   warn: "⚠️",
-  reload: "♻️",
-  arrow: "➤"
+  reload: "♻️"
 };
 
 async function getStreamFromURL(url) {
-  try {
-    const res = await axios.get(url, { responseType: "stream" });
-    return res.data;
-  } catch {
-    throw new Error("Failed to get stream");
-  }
-}
-
-async function getExtensionFromUrl(mediaUrl) {
-  try {
-    const response = await axios.get(mediaUrl, { responseType: "stream" });
-    const type = response.headers["content-type"];
-    return getExtensionFromMimeType(type) || path.extname(new URL(mediaUrl).pathname).toLowerCase();
-  } catch {
-    return path.extname(mediaUrl).toLowerCase();
-  }
+  const res = await axios.get(url, { responseType: "stream" });
+  return res.data;
 }
 
 function getExtensionFromMimeType(mimeType = "") {
@@ -59,123 +39,71 @@ function getExtensionFromMimeType(mimeType = "") {
   return map[mimeType] || "";
 }
 
-async function downloadFile(url, downloadPath) {
-  try {
-    const res = await axios.get(url, { responseType: "arraybuffer" });
-    await fs.writeFile(downloadPath, Buffer.from(res.data));
-  } catch {
-    throw new Error("Download failed");
-  }
+async function downloadFile(url, filePath) {
+  const res = await axios.get(url, { responseType: "arraybuffer" });
+  await fs.writeFile(filePath, Buffer.from(res.data));
 }
 
 function message(bot, msg) {
   const chatId = msg.chat.id;
   const messageId = msg.message_id;
 
-  async function sendErr(err) {
-    const text =
-      typeof err === "object"
-        ? `${err.name || "Error"}: ${err.message}`
-        : err;
-
-    return bot.sendMessage(chatId, `❌ | ${text}`, {
+  const sendErr = (err) =>
+    bot.sendMessage(chatId, `❌ | ${err.message || err}`, {
       reply_to_message_id: messageId
     });
-  }
 
   return {
-    send: async (text, opt = {}) => {
-      try {
-        return await bot.sendMessage(chatId, text, opt);
-      } catch (e) {
-        return sendErr(e);
-      }
-    },
-
-    reply: async (text, opt = {}) => {
-      try {
-        return await bot.sendMessage(chatId, text, {
-          reply_to_message_id: messageId,
-          ...opt
-        });
-      } catch (e) {
-        return sendErr(e);
-      }
-    },
-
-    unsend: async (id) => {
-      try {
-        return await bot.deleteMessage(chatId, id);
-      } catch {}
-    },
+    reply: (text, opt = {}) =>
+      bot.sendMessage(chatId, text, {
+        reply_to_message_id: messageId,
+        ...opt
+      }).catch(sendErr),
 
     stream: async ({ url, caption = "" }) => {
       try {
-        const ext = url.startsWith("http")
-          ? await getExtensionFromUrl(url)
-          : path.extname(url).toLowerCase();
+        const ext = path.extname(url).toLowerCase();
+        const opt = { caption, reply_to_message_id: messageId };
 
-        const options = { caption, reply_to_message_id: messageId };
+        if ([".jpg", ".png", ".jpeg", ".gif"].includes(ext))
+          return bot.sendPhoto(chatId, url, opt);
 
-        if ([".jpg", ".jpeg", ".png", ".gif"].includes(ext)) {
-          return bot.sendPhoto(chatId, url, options);
-        }
+        if ([".mp4", ".mov"].includes(ext))
+          return bot.sendVideo(chatId, url, opt);
 
-        if ([".mp4", ".mov"].includes(ext)) {
-          return bot.sendVideo(chatId, url, options);
-        }
+        if ([".mp3", ".wav", ".m4a"].includes(ext))
+          return bot.sendAudio(chatId, url, opt);
 
-        if ([".mp3", ".wav", ".m4a"].includes(ext)) {
-          return bot.sendAudio(chatId, url, options);
-        }
-
-        throw new Error("Unsupported media type");
       } catch (e) {
-        return sendErr(e);
+        sendErr(e);
       }
     },
 
     download: async ({ url, mimeType }) => {
       try {
         const ext = getExtensionFromMimeType(mimeType) || ".tmp";
-        const file = path.join(process.cwd(), `temp_${Date.now()}${ext}`);
+
+        const tempDir = path.join(process.cwd(), "temp");
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+
+        const file = path.join(tempDir, `temp_${Date.now()}${ext}`);
 
         await downloadFile(url, file);
 
-        const options = { reply_to_message_id: messageId };
+        const opt = { reply_to_message_id: messageId };
 
-        if (mimeType.startsWith("image")) {
-          await bot.sendPhoto(chatId, file, options);
-        } else if (mimeType.startsWith("video")) {
-          await bot.sendVideo(chatId, file, options);
-        } else if (mimeType.startsWith("audio")) {
-          await bot.sendAudio(chatId, file, options);
-        } else {
-          throw new Error("Unsupported file type");
-        }
+        if (mimeType.startsWith("image"))
+          await bot.sendPhoto(chatId, file, opt);
+        else if (mimeType.startsWith("video"))
+          await bot.sendVideo(chatId, file, opt);
+        else if (mimeType.startsWith("audio"))
+          await bot.sendAudio(chatId, file, opt);
 
-        await fs.remove(file);
+        await fs.remove(file).catch(() => {});
       } catch (e) {
-        return sendErr(e);
+        sendErr(e);
       }
-    },
-
-    code: async (txt) => {
-      try {
-        return await bot.sendMessage(
-          chatId,
-          `\`\`\`js\n${txt}\n\`\`\``,
-          {
-            parse_mode: "Markdown",
-            reply_to_message_id: messageId
-          }
-        );
-      } catch (e) {
-        return sendErr(e);
-      }
-    },
-
-    err: sendErr
+    }
   };
 }
 
@@ -185,6 +113,9 @@ function loadScripts(bot) {
 
   if (!fs.existsSync(cmdPath)) fs.mkdirSync(cmdPath, { recursive: true });
   if (!fs.existsSync(evPath)) fs.mkdirSync(evPath, { recursive: true });
+
+  global.commands = new Map();
+  global.events = new Map();
 
   console.log(
     `\n${c.cyan}────────────────────────────────────────────
@@ -196,23 +127,13 @@ ${c.cyan}───────────────────────�
     if (!file.endsWith(".js")) return;
 
     try {
-      delete require.cache[require.resolve(path.join(cmdPath, file))];
       const cmd = require(path.join(cmdPath, file));
-
-      if (!cmd.config?.name) {
-        console.log(`${c.yellow}${s.warn} cmd skipped ${c.bold}${file}${c.reset}`);
-        return;
-      }
+      if (!cmd.config?.name) return;
 
       global.commands.set(cmd.config.name, cmd);
-
-      console.log(
-        `${c.green}${s.ok} cmd load successfully ${c.bold}${file}${c.reset}`
-      );
+      console.log(`${c.green}${s.ok} ${file}${c.reset}`);
     } catch {
-      console.log(
-        `${c.red}${s.err} cmd load failed ${c.bold}${file}${c.reset}`
-      );
+      console.log(`${c.red}${s.err} ${file}${c.reset}`);
     }
   });
 
@@ -226,10 +147,7 @@ ${c.cyan}───────────────────────�
     if (!file.endsWith(".js")) return;
 
     try {
-      delete require.cache[require.resolve(path.join(evPath, file))];
-
       const ev = require(path.join(evPath, file));
-
       if (typeof ev.run !== "function") return;
 
       const eventName = ev.event || "message";
@@ -238,22 +156,22 @@ ${c.cyan}───────────────────────�
 
       bot.on(eventName, handler);
 
-      global.events.set(file, {
-        event: eventName,
-        handler
-      });
+      global.events.set(file, { event: eventName, handler });
 
-      console.log(
-        `${c.cyan}${s.ok} event load successfully ${c.bold}${file}${c.reset}`
-      );
+      console.log(`${c.cyan}${s.ok} ${file}${c.reset}`);
     } catch {
-      console.log(
-        `${c.red}${s.err} event load failed ${c.bold}${file}${c.reset}`
-      );
+      console.log(`${c.red}${s.err} ${file}${c.reset}`);
     }
   });
 
-  chokidar.watch([cmdPath, evPath]).on("change", file => {
+  chokidar.watch([cmdPath, evPath], {
+    ignoreInitial: true,
+    ignored: /(^|[\/\\])\../
+  })
+  .on("change", file => {
+
+    if (!file.endsWith(".js")) return;
+
     try {
       delete require.cache[require.resolve(file)];
 
@@ -263,34 +181,32 @@ ${c.cyan}───────────────────────�
 
         global.commands.set(cmd.config.name, cmd);
 
-        console.log(
-          `${c.green}${s.reload} cmd reload ${c.bold}${path.basename(file)}${c.reset}`
-        );
+        console.log(`${c.green}${s.reload} ${path.basename(file)}${c.reset}`);
       }
 
       if (file.includes("events")) {
         const name = path.parse(file).name;
 
         if (global.events.has(name)) {
-          bot.removeListener(name, global.events.get(name));
+          const old = global.events.get(name);
+          bot.removeListener(old.event, old.handler);
         }
 
         const ev = require(file);
         if (typeof ev.run !== "function") return;
 
-        const handler = (...args) => ev.run({ bot, event: args[0] });
+        const eventName = ev.event || "message";
+        const handler = (event) => ev.run({ bot, event });
 
-        bot.on(name, handler);
-        global.events.set(name, handler);
+        bot.on(eventName, handler);
 
-        console.log(
-          `${c.cyan}${s.reload} event reload ${c.bold}${name}${c.reset}`
-        );
+        global.events.set(name, { event: eventName, handler });
+
+        console.log(`${c.cyan}${s.reload} ${name}${c.reset}`);
       }
+
     } catch {
-      console.log(
-        `${c.red}${s.err} reload failed ${c.bold}${path.basename(file)}${c.reset}`
-      );
+      console.log(`${c.red}${s.err} reload failed ${path.basename(file)}${c.reset}`);
     }
   });
 }
