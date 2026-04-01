@@ -1,57 +1,85 @@
+const fs = require("fs");
+const path = require("path");
 const axios = require("axios");
+const nayan = require("nayan-media-downloaders");
+const Youtube = require("youtube-search-api");
 
 module.exports = {
   config: {
     name: "song",
-    aliases: ["music", "play"],
-    version: "8.0.0",
-    author: "SK-SIDDIK-KHAN",
-    description: "Direct song download (no button)",
-    category: "media",
-    role: 0,
-    usePrefix: true
+    aliases: ["a"],
+    prefix: true,
+    permission: 0,
+    description: "Direct song download (no button).",
   },
 
-  run: async ({ bot, msg, args }) => {
-    const chatId = msg.chat.id;
-    const keyword = args.join(" ");
+  start: async function ({ api, event }) {
+    const keyword = event.body?.split(" ").slice(1).join(" ");
 
     if (!keyword) {
-      return bot.sendMessage(chatId,
-        "⚠️ | Example: /song Believer",
-        { reply_to_message_id: msg.message_id }
+      return api.sendMessage(
+        event.threadId,
+        "⚠️ Please provide a song name.\nExample: song Believer",
+        { reply_to_message_id: event.msg.message_id }
       );
     }
 
     try {
-      // 🔍 SEARCH API
-      const res = await axios.get(
-        `https://yt-search-api.vercel.app/search?q=${encodeURIComponent(keyword)}`
-      );
-
-      const video = res.data?.data?.[0];
+      // 🔍 YouTube search
+      const results = await Youtube.GetListByKeyword(keyword, false, 1);
+      const video = results.items?.[0];
 
       if (!video) {
-        return bot.sendMessage(chatId, "❌ | Song not found");
+        return api.sendMessage(event.threadId, "❌ No results found.", {
+          reply_to_message_id: event.msg.message_id,
+        });
       }
 
-      // ⏳ loading msg
-      const wait = await bot.sendMessage(chatId, "⏳ | Downloading...");
+      const videoUrl = `https://www.youtube.com/watch?v=${video.id}`;
 
-      // 🎧 AUDIO API
-      const audioUrl = `https://api.vevioz.com/api/button/mp3/${video.videoId}`;
+      const waitMsg = await api.sendMessage(
+        event.threadId,
+        "⏳ Downloading audio...",
+        { reply_to_message_id: event.msg.message_id }
+      );
 
-      // 🎵 send audio
-      await bot.sendAudio(chatId, audioUrl, {
-        caption: `🎧 ${video.title}\n⏱ ${video.duration}`
+      // 🎧 download using nayan api
+      const data = await nayan.ytdown(videoUrl);
+
+      const audioUrl = data?.data?.audio;
+      const title = data?.data?.title || video.title;
+
+      if (!audioUrl) {
+        throw new Error("No audio URL");
+      }
+
+      const cacheDir = path.join(__dirname, "Nayan");
+      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
+
+      const filePath = path.join(cacheDir, `song_${Date.now()}.mp3`);
+      const writer = fs.createWriteStream(filePath);
+
+      const res = await axios.get(audioUrl, { responseType: "stream" });
+      res.data.pipe(writer);
+
+      writer.on("finish", async () => {
+        await api.deleteMessage(event.threadId, waitMsg.message_id);
+
+        await api.sendAudio(event.threadId, filePath, {
+          caption: `🎧 ${title}`,
+          reply_to_message_id: event.msg.message_id,
+        });
+
+        fs.unlinkSync(filePath);
       });
 
-      // ❌ remove loading msg
-      await bot.deleteMessage(chatId, wait.message_id);
-
     } catch (err) {
-      console.log("ERROR:", err.message);
-      bot.sendMessage(chatId, "❌ | Failed to fetch song");
+      console.log("ERROR:", err);
+      api.sendMessage(
+        event.threadId,
+        "❌ Failed to download audio.",
+        { reply_to_message_id: event.msg.message_id }
+      );
     }
   }
 };
