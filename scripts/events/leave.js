@@ -1,16 +1,20 @@
 module.exports = {
+  name: "leave",
+  author: "SK-SIDDIK-KHAN",
+  event: "message",
+
   run: async ({ bot, event }) => {
 
-    if (event.left_chat_member) {
-      const leftMember = event.left_chat_member.first_name;
-      const chatName = event.chat.title || 'this group';
+    if (!event.left_chat_member) return;
 
-      const leaveMessage = `╭━━━━━━━━━━━━━━━━━━━━━━╮
-${leftMember}
-╰━━━━━━━━━━━━━━━━━━━━━━╯ has left from our ${chatName}.`;
+    const leftMember = event.left_chat_member.first_name;
+    const chatName = event.chat.title || "this group";
 
-      bot.sendMessage(event.chat.id, leaveMessage);
-    }
+    const leaveMessage = `╭━〔 💔 GOODBYE 〕━╮
+┃ 😢 ${leftMember}
+┃ 📤 Left from ${chatName}
+╰━━━━━━━━━━━━╯`;
 
+    bot.sendMessage(event.chat.id, leaveMessage);
   }
 };
