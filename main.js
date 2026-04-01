@@ -2,6 +2,9 @@ const TelegramBot = require("node-telegram-bot-api");
 const config = require("./config.json");
 const { loadScripts, messageUtils } = require("./utils");
 
+const fs = require("fs");
+const path = require("path");
+
 const utils = require("./utils");
 global.utils = utils;
 
@@ -24,6 +27,28 @@ global.cooldowns = new Map();
 
 loadScripts(bot);
 
+// ================= THREAD SYSTEM =================
+const threadFile = path.join(process.cwd(), "threads.json");
+
+if (!fs.existsSync(threadFile)) {
+  fs.writeFileSync(threadFile, "[]");
+}
+
+function saveThread(chatId) {
+  let data = [];
+  try {
+    data = JSON.parse(fs.readFileSync(threadFile));
+  } catch {
+    data = [];
+  }
+
+  if (!data.includes(chatId)) {
+    data.push(chatId);
+    fs.writeFileSync(threadFile, JSON.stringify(data));
+  }
+}
+// =================================================
+
 bot.on("message", async (msg) => {
   try {
     const text = msg.text?.trim() || "";
@@ -34,6 +59,9 @@ bot.on("message", async (msg) => {
 
     const chatId = msg.chat.id;
     const userId = msg.from.id;
+
+    // ✅ AUTO SAVE THREAD
+    saveThread(chatId);
 
     const isBotAdmin = (config.admins || []).includes(userId);
     const isOperator = (config.botOperator || []).includes(userId);
@@ -222,21 +250,5 @@ bot.on("callback_query", async (query) => {
 
 console.log(`
 DEFINITELY BY SK SIDDIK ━━━━━━━━━━♡
- 
-███████╗██╗██████╗ ██████╗ ██╗██╗  ██╗    ██████╗  ██████╗ ████████╗
-██╔════╝██║██╔══██╗██╔══██╗██║██║ ██╔╝    ██╔══██╗██╔═══██╗╚══██╔══╝
-███████╗██║██║  ██║██║  ██║██║█████╔╝     ██████╔╝██║   ██║   ██║   
-╚════██║██║██║  ██║██║  ██║██║██╔═██╗     ██╔══██╗██║   ██║   ██║   
-███████║██║██████╔╝██████╔╝██║██║  ██╗    ██████╔╝╚██████╔╝   ██║   
-╚══════╝╚═╝╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═╝    ╚═════╝  ╚═════╝    ╚═╝   
-                                                                    
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┣➤🤖 SIDDIK BOT SYSTEM READY
-┣━━━━━━━━━━━━━━━━━━━
-┣➤Name   : ${config.botName}
-┣━━━━━━━━━━━━━━━━━━━
-┣➤Prefix : ${config.prefix}
-┣━━━━━━━━━━━━━━━━━━━
-┣➤Owner  : ${config.owner}
-┗━━━━━━━━━━━━━━━━𝗘𝗡𝗝𝗢𝗬━━━━━━━━━━━━━┛
+🤖 BOT RUNNING SUCCESSFULLY
 `);
