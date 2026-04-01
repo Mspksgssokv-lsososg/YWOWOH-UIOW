@@ -18,6 +18,7 @@ const bot = new TelegramBot(token, { polling: true });
 global.commands = new Map();
 global.events = new Map();
 global.config = config;
+global.adminOnly = false;
  
 global.functions = {
   reply: new Map(),
@@ -79,6 +80,12 @@ bot.on("message", async (msg) => {
   return bot.sendMessage(
     chatId,
     "🚫 | 𝐘𝐨𝐮 𝐡𝐚𝐯𝐞 𝐛𝐞𝐞𝐧 𝐛𝐚𝐧𝐧𝐞𝐝 𝐟𝐫𝐨𝐦 𝐮𝐬𝐢𝐧𝐠 𝐭𝐡𝐞 𝐛𝐨𝐭"
+  );
+}
+if (global.adminOnly && !isBotAdmin) {
+  return bot.sendMessage(
+    chatId,
+    "🔒 | Admin Only Mode is ON"
   );
 }
  
@@ -308,5 +315,3 @@ DEFINITELY BY SK SIDDIK ━━━━━━━━━━♡
 ┣➤Owner  : ${config.owner}
 ┗━━━━━━━━━━━━━━━━𝗘𝗡𝗝𝗢𝗬━━━━━━━━━━━━━┛
 `);
- 
- 
