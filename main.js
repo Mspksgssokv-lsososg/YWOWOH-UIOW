@@ -29,6 +29,23 @@ global.cooldowns = new Map();
 loadScripts(bot);
  
 const threadFile = path.join(process.cwd(), "threads.json");
+const banFile = path.join(process.cwd(), "banned.json");
+
+if (!fs.existsSync(banFile)) {
+  fs.writeFileSync(banFile, "[]");
+}
+
+function getBanned() {
+  try {
+    return JSON.parse(fs.readFileSync(banFile));
+  } catch {
+    return [];
+  }
+}
+
+function isBanned(userId) {
+  return getBanned().includes(String(userId));
+}
  
 if (!fs.existsSync(threadFile)) {
   fs.writeFileSync(threadFile, "[]");
@@ -58,6 +75,12 @@ bot.on("message", async (msg) => {
  
     const chatId = msg.chat.id;
     const userId = msg.from.id;
+    if (isBanned(userId)) {
+  return bot.sendMessage(
+    chatId,
+    "🚫 | 𝐘𝐨𝐮 𝐡𝐚𝐯𝐞 𝐛𝐞𝐞𝐧 𝐛𝐚𝐧𝐧𝐞𝐝 𝐟𝐫𝐨𝐦 𝐮𝐬𝐢𝐧𝐠 𝐭𝐡𝐞 𝐛𝐨𝐭"
+  );
+}
  
     saveThread(chatId);
  
@@ -245,22 +268,22 @@ bot.on("callback_query", async (query) => {
     console.log("❌ CALLBACK ERROR:", err);
   }
 });
-
+ 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
+ 
 app.get("/", (req, res) => {
   res.send("🤖 Siddik Bot is running 24/7 ✅");
 });
-
+ 
 app.listen(PORT, () => {
   console.log(`🌍 Web server running at http://localhost:${PORT}`);
 });
-
+ 
 process.on("unhandledRejection", (reason) => {
   console.error("💥 UNHANDLED REJECTION:", reason);
 });
-
+ 
 process.on("uncaughtException", (err) => {
   console.error("🔥 UNCAUGHT EXCEPTION:", err);
 });
@@ -285,4 +308,5 @@ DEFINITELY BY SK SIDDIK ━━━━━━━━━━♡
 ┣➤Owner  : ${config.owner}
 ┗━━━━━━━━━━━━━━━━𝗘𝗡𝗝𝗢𝗬━━━━━━━━━━━━━┛
 `);
+ 
  
