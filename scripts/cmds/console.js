@@ -1,4 +1,4 @@
-const chalk = require("chalk");
+const chalk = require("chalk").default;
 const moment = require("moment-timezone");
  
 module.exports = {
@@ -11,11 +11,11 @@ module.exports = {
     description: { en: "Logs detailed message information to the console for debugging or monitoring" },
     category: "INFO"
   },
-
+ 
   onChat: async function ({ msg }) {
-
+ 
     if (!msg || !msg.chat || !msg.from) return;
-
+ 
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const name = msg.from.first_name + (msg.from.last_name ? ` ${msg.from.last_name}` : "");
@@ -32,7 +32,7 @@ module.exports = {
       title = "Group Name";
       user = threadName;
     }
-
+ 
     const msgContent = msg.text || msg.caption || "media or special characters";
     const time = moment.tz("Asia/Dhaka").format("LLLL");
  
