@@ -1,4 +1,4 @@
-name: Siddik-Bot
+name: SIDDIK_BOT
  
 on:
   push:
@@ -17,13 +17,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '20'
  
       - name: Install dependencies
         run: npm install
  
-      - name: Siddik-Bot
+      - name: Start SIDDIK_BOT
         run: npm start
  
-        
  
