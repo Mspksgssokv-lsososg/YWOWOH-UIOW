@@ -7,9 +7,10 @@ const Youtube = require("youtube-search-api");
 module.exports = {
   config: {
     name: "song",
-    aliases: ["a"],
+    author: "SK-SIDDIK-KHAN",
+    aliases: ["music"],
     role: 0,
-    description: "Direct song download (no button)",
+    description: "Direct song download",
     usePrefix: true
   },
 
@@ -25,7 +26,6 @@ module.exports = {
     }
 
     try {
-      // 🔍 search
       const results = await Youtube.GetListByKeyword(keyword, false, 1);
       const video = results.items?.[0];
 
@@ -37,7 +37,6 @@ module.exports = {
 
       const wait = await bot.sendMessage(chatId, "⏳ | Downloading...");
 
-      // 🎧 download
       const data = await nayan.ytdown(videoUrl);
 
       const audioUrl = data?.data?.audio;
