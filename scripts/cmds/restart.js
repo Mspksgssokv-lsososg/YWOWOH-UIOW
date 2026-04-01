@@ -1,44 +1,39 @@
-const fs = require("fs");
-const path = require("path");
-
-const cacheDir = path.join(__dirname, "caches");
-
 module.exports = {
   config: {
     name: "restart",
     aliases: [],
-    version: "2.0.0",
-    role: 3,
-    author: "dipto",
-    description: "Soft restart (no shutdown).",
+    version: "2.1.0",
+    role: 2,
+    author: "SK-SIDDIK-KHAN",
+    description: "Soft restart with auto unsend.",
     usePrefix: true,
     category: "admin",
     cooldown: 5
   },
 
-  onStart: async function ({ message, event }) {
+  onStart: async function ({ message, event, bot }) {
     try {
-      const chatId = event.chat.id;
-
-      if (!fs.existsSync(cacheDir)) {
-        fs.mkdirSync(cacheDir, { recursive: true });
-      }
-
       const start = Date.now();
 
-      await message.reply("🔄 | Restarting the bot...");
+      const msg = await message.reply("🔄 | Restarting the bot...");
 
-      // ⏳ fake delay (1.5 sec)
       setTimeout(async () => {
         const elapsed = ((Date.now() - start) / 1000).toFixed(2);
+
+        try {
+          if (msg?.message_id) {
+            await message.unsend(msg.message_id);
+          } else {
+            await bot.deleteMessage(event.chat.id, msg.message_id);
+          }
+        } catch {}
 
         await message.reply(
           `✅ | Bot restarted\n⏰ | Time: ${elapsed}s`
         );
       }, 1500);
 
-    } catch (err) {
-      console.error("RESTART ERROR:", err);
+    } catch {
       return message.reply("❌ | Restart failed");
     }
   }
