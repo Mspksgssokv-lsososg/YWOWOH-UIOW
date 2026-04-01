@@ -131,9 +131,13 @@ ${c.cyan}───────────────────────�
       if (!cmd.config?.name) return;
 
       global.commands.set(cmd.config.name, cmd);
-      console.log(`${c.green}${s.ok} ${file}${c.reset}`);
+      console.log(
+        `${c.green}${s.ok} cmd load successfully ${c.bold}${file}${c.reset}`
+      );
     } catch {
-      console.log(`${c.red}${s.err} ${file}${c.reset}`);
+      console.log(
+        `${c.red}${s.err} cmd load failed ${c.bold}${file}${c.reset}`
+      );
     }
   });
 
@@ -158,9 +162,13 @@ ${c.cyan}───────────────────────�
 
       global.events.set(file, { event: eventName, handler });
 
-      console.log(`${c.cyan}${s.ok} ${file}${c.reset}`);
+      console.log(
+        `${c.cyan}${s.ok} event load successfully ${c.bold}${file}${c.reset}`
+      );
     } catch {
-      console.log(`${c.red}${s.err} ${file}${c.reset}`);
+      console.log(
+        `${c.red}${s.err} event load failed ${c.bold}${file}${c.reset}`
+      );
     }
   });
 
@@ -181,7 +189,9 @@ ${c.cyan}───────────────────────�
 
         global.commands.set(cmd.config.name, cmd);
 
-        console.log(`${c.green}${s.reload} ${path.basename(file)}${c.reset}`);
+        console.log(
+          `${c.green}${s.reload} cmd reload ${c.bold}${path.basename(file)}${c.reset}`
+        );
       }
 
       if (file.includes("events")) {
@@ -202,11 +212,14 @@ ${c.cyan}───────────────────────�
 
         global.events.set(name, { event: eventName, handler });
 
-        console.log(`${c.cyan}${s.reload} ${name}${c.reset}`);
+        console.log(
+          `${c.cyan}${s.reload} event reload ${c.bold}${name}${c.reset}`
+        );
       }
-
     } catch {
-      console.log(`${c.red}${s.err} reload failed ${path.basename(file)}${c.reset}`);
+      console.log(
+        `${c.red}${s.err} reload failed ${c.bold}${path.basename(file)}${c.reset}`
+      );
     }
   });
 }
