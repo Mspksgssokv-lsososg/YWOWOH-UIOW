@@ -6,12 +6,12 @@ const path = require("path");
 module.exports = {
   config: {
     name: "catbox",
-    author: "SaGor (Fixed by Siddik 😎)",
+    author: "SK-SIDDIK-KHAN",
     description: "Upload replied photo/video to Catbox",
     category: "Tools",
     role: 0,
     cooldown: 5,
-    usePrefix: true
+    usePrefix: false
   },
 
   onStart: async ({ bot, msg }) => {
@@ -33,7 +33,6 @@ module.exports = {
       return bot.sendMessage(chatId, "❌ Only image/video supported");
     }
 
-    // unique temp file
     const tempPath = path.join(__dirname, `temp_${Date.now()}${ext}`);
 
     let progressAnim;
@@ -58,11 +57,9 @@ module.exports = {
         i++;
       }, 1200);
 
-      // get file
       const file = await bot.getFile(fileId);
       const fileUrl = `https://api.telegram.org/file/bot${bot.token}/${file.file_path}`;
 
-      // download
       const res = await axios.get(fileUrl, { responseType: "stream" });
       const writer = fs.createWriteStream(tempPath);
       res.data.pipe(writer);
@@ -72,7 +69,6 @@ module.exports = {
         writer.on("error", reject);
       });
 
-      // upload to catbox
       const form = new FormData();
       form.append("reqtype", "fileupload");
       form.append("fileToUpload", fs.createReadStream(tempPath));
@@ -83,13 +79,12 @@ module.exports = {
         { headers: form.getHeaders() }
       );
 
-      // cleanup
       clearInterval(progressAnim);
       if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
 
       await bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => {});
 
-      return bot.sendMessage(chatId, `✅ Uploaded:\n${upload.data}`);
+      return bot.sendMessage(chatId, `✅ Uploaded\n${upload.data}`);
 
     } catch (err) {
       clearInterval(progressAnim);
