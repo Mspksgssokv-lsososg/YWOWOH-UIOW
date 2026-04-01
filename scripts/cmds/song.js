@@ -1,16 +1,13 @@
-const fs = require("fs");
-const path = require("path");
 const axios = require("axios");
-const nayan = require("nayan-media-downloaders");
 const Youtube = require("youtube-search-api");
 
 module.exports = {
   config: {
     name: "song",
-    aliases: ["a"],
-    version: "3.0.0",
+    aliases: ["music", "play"],
+    version: "5.0.0",
     author: "SK-SIDDIK-KHAN",
-    description: "Search and download songs",
+    description: "Search and download song with button",
     category: "media",
     role: 0,
     usePrefix: true
@@ -22,104 +19,97 @@ module.exports = {
 
     if (!keyword) {
       return bot.sendMessage(chatId,
-        "⚠️ Please provide a keyword\nExample: /song Believer",
+        "⚠️ | Example: /song Believer",
         { reply_to_message_id: msg.message_id }
       );
     }
 
     try {
-      const results = await Youtube.GetListByKeyword(keyword, false, 6);
-      const list = results.items;
+      const res = await Youtube.GetListByKeyword(keyword, false, 5);
+      const list = res.items;
 
-      if (!list || !list.length) {
-        return bot.sendMessage(chatId, "❌ No results found");
+      if (!list.length) {
+        return bot.sendMessage(chatId, "❌ | Song not found");
       }
 
-      // 🔘 buttons
-      const buttons = list.map((item, i) => ([
-        {
-          text: `${i + 1}. ${item.title.substring(0, 30)}`,
-          callback_data: `song_${i}`
-        }
-      ]));
+      // 🎵 List Message
+      let text = `🎧 𝗦𝗢𝗡𝗚 𝗟𝗜𝗦𝗧\n\n`;
+      const buttons = [];
 
-      const text =
-        `🎵 *Search Results for:* ${keyword}\n\n` +
-        list.map((item, i) =>
-          `*${i + 1}. ${item.title}*\n⏱ ${item.length.simpleText}`
-        ).join("\n\n");
+      list.forEach((item, i) => {
+        text += `➤ ${i + 1}. ${item.title}\n⏱ ${item.length.simpleText}\n\n`;
+
+        buttons.push([{
+          text: `${i + 1}`,
+          callback_data: `song_${i}`
+        }]);
+      });
 
       const sent = await bot.sendMessage(chatId, text, {
-        parse_mode: "Markdown",
-        reply_markup: { inline_keyboard: buttons },
+        reply_markup: {
+          inline_keyboard: buttons
+        },
         reply_to_message_id: msg.message_id
       });
 
-      // ✅ save button handler
+      // 🔥 Save handler
       global.client.handleButton.push({
         name: this.config.name,
         messageID: sent.message_id,
         author: msg.from.id,
-        links: list.map(v => v.id)
+        videos: list
       });
 
     } catch (err) {
       console.log(err);
-      bot.sendMessage(chatId, "❌ Search failed");
+      bot.sendMessage(chatId, "❌ | Error fetching songs");
     }
   },
 
+  // 🔥 BUTTON CLICK
   handleButton: async ({ bot, query, handleButton }) => {
-    const chatId = query.message.chat.id;
-
     try {
-      // 🔒 only requester can click
-      if (query.from.id !== handleButton.author) {
+      const userId = query.from.id;
+
+      // ❌ Only command user can click
+      if (userId !== handleButton.author) {
         return bot.answerCallbackQuery(query.id, {
-          text: "❌ Not your request",
+          text: "❌ | Not your request",
           show_alert: true
         });
       }
 
       const index = parseInt(query.data.split("_")[1]);
-      const videoId = handleButton.links[index];
+      const video = handleButton.videos[index];
 
-      if (!videoId) return;
-
-      const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-
-      await bot.answerCallbackQuery(query.id);
-
-      const waitMsg = await bot.sendMessage(chatId, "⏳ Fetching audio...");
-
-      const data = await nayan.ytdown(videoUrl);
-      const audioUrl = data.data.audio;
-      const title = data.data.title;
-
-      // 📁 cache folder
-      const dir = path.join(__dirname, "cache");
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-
-      const filePath = path.join(dir, `song_${Date.now()}.mp3`);
-      const writer = fs.createWriteStream(filePath);
-
-      const res = await axios.get(audioUrl, { responseType: "stream" });
-      res.data.pipe(writer);
-
-      writer.on("finish", async () => {
-        await bot.deleteMessage(chatId, waitMsg.message_id);
-
-        await bot.sendAudio(chatId, filePath, {
-          caption: `🎧 *${title}*`,
-          parse_mode: "Markdown"
+      if (!video) {
+        return bot.answerCallbackQuery(query.id, {
+          text: "❌ | Invalid selection",
+          show_alert: true
         });
+      }
 
-        fs.unlinkSync(filePath);
+      const chatId = query.message.chat.id;
+
+      await bot.sendMessage(chatId, "⏳ | Downloading...");
+
+      // 🔥 WORKING API
+      const api = `https://yt-downloader-music.vercel.app/?url=https://www.youtube.com/watch?v=${video.id}`;
+
+      const res = await axios.get(api);
+
+      if (!res.data || !res.data.audio) {
+        return bot.sendMessage(chatId, "❌ | Download failed");
+      }
+
+      // 🎧 Send Audio
+      await bot.sendAudio(chatId, res.data.audio, {
+        title: video.title
       });
 
     } catch (err) {
       console.log(err);
-      bot.sendMessage(chatId, "❌ Failed to download");
+      bot.sendMessage(query.message.chat.id, "❌ | Error downloading");
     }
   }
 };
