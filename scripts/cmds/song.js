@@ -8,52 +8,44 @@ module.exports = {
   config: {
     name: "song",
     aliases: ["a"],
-    prefix: true,
-    permission: 0,
-    description: "Direct song download (no button).",
+    role: 0,
+    description: "Direct song download (no button)",
+    usePrefix: true
   },
 
-  start: async function ({ api, event }) {
-    const keyword = event.body?.split(" ").slice(1).join(" ");
+  run: async function ({ bot, msg, args }) {
+    const chatId = msg.chat.id;
+    const keyword = args.join(" ");
 
     if (!keyword) {
-      return api.sendMessage(
-        event.threadId,
-        "⚠️ Please provide a song name.\nExample: song Believer",
-        { reply_to_message_id: event.msg.message_id }
+      return bot.sendMessage(chatId,
+        "⚠️ | Example: /song Believer",
+        { reply_to_message_id: msg.message_id }
       );
     }
 
     try {
-      // 🔍 YouTube search
+      // 🔍 search
       const results = await Youtube.GetListByKeyword(keyword, false, 1);
       const video = results.items?.[0];
 
       if (!video) {
-        return api.sendMessage(event.threadId, "❌ No results found.", {
-          reply_to_message_id: event.msg.message_id,
-        });
+        return bot.sendMessage(chatId, "❌ | Song not found");
       }
 
       const videoUrl = `https://www.youtube.com/watch?v=${video.id}`;
 
-      const waitMsg = await api.sendMessage(
-        event.threadId,
-        "⏳ Downloading audio...",
-        { reply_to_message_id: event.msg.message_id }
-      );
+      const wait = await bot.sendMessage(chatId, "⏳ | Downloading...");
 
-      // 🎧 download using nayan api
+      // 🎧 download
       const data = await nayan.ytdown(videoUrl);
 
       const audioUrl = data?.data?.audio;
       const title = data?.data?.title || video.title;
 
-      if (!audioUrl) {
-        throw new Error("No audio URL");
-      }
+      if (!audioUrl) throw new Error("No audio");
 
-      const cacheDir = path.join(__dirname, "Nayan");
+      const cacheDir = path.join(__dirname, "cache");
       if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir);
 
       const filePath = path.join(cacheDir, `song_${Date.now()}.mp3`);
@@ -63,11 +55,10 @@ module.exports = {
       res.data.pipe(writer);
 
       writer.on("finish", async () => {
-        await api.deleteMessage(event.threadId, waitMsg.message_id);
+        await bot.deleteMessage(chatId, wait.message_id);
 
-        await api.sendAudio(event.threadId, filePath, {
-          caption: `🎧 ${title}`,
-          reply_to_message_id: event.msg.message_id,
+        await bot.sendAudio(chatId, filePath, {
+          caption: `🎧 ${title}`
         });
 
         fs.unlinkSync(filePath);
@@ -75,11 +66,7 @@ module.exports = {
 
     } catch (err) {
       console.log("ERROR:", err);
-      api.sendMessage(
-        event.threadId,
-        "❌ Failed to download audio.",
-        { reply_to_message_id: event.msg.message_id }
-      );
+      bot.sendMessage(chatId, "❌ | Download failed");
     }
   }
 };
