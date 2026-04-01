@@ -1,7 +1,7 @@
 module.exports.config = {
   name: "admin",
   aliases: [],
-  version: "1.0.2",
+  version: "1.0.3",
   role: 0,
   author: "SK-SIDDIK-KHAN",
   description: "Display information about the bot admins and group admins.",
@@ -11,63 +11,66 @@ module.exports.config = {
   countDown: 5,
 };
 
-module.exports.onStart = async ({ message, event, api, usersData, args }) => {
+module.exports.onStart = async ({ message, event, bot, usersData, args }) => {
   try {
-    const config = global.functions?.config || {};
+    const config = global.config || {};
 
-    const adminBotIds = config.adminBot || [];
+    const adminBotIds = config.admins || [];
     const botOperatorIds = config.botOperator || [];
 
     const chatId = event.chat.id;
 
-    let adminInfo = `╭──────────────────╮
-✨ 𝐁𝐨𝐭 𝐀𝐝𝐦𝐢𝐧𝐬 & 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫𝐬 🍀
-╰──────────────────╯`;
+    let adminInfo = `╭━━━━━━━━━━━━━━━━╮
+✨ 𝐁𝐎𝐓 𝐀𝐃𝐌𝐈𝐍𝐒 & 𝐎𝐏𝐄𝐑𝐀𝐓𝐎𝐑𝐒 🍀
+╰━━━━━━━━━━━━━━━━╯`;
 
     if (!args[0]) {
 
       if (adminBotIds.length) {
-        adminInfo += `\n\n✨ 𝐁𝐨𝐭 𝐀𝐝𝐦𝐢𝐧𝐬:\n`;
+        adminInfo += `\n\n👑 𝐁𝐎𝐓 𝐀𝐃𝐌𝐈𝐍𝐒:\n`;
 
+        let i = 1;
         for (const adminId of adminBotIds) {
           let name = "Unknown";
           try {
             name = await usersData.getName(String(adminId));
           } catch {}
 
-          adminInfo += `- 𝐍𝐚𝐦𝐞: ${name}\n  𝐈𝐃: ${adminId}\n`;
+          adminInfo += `\n${i++}. 👤 ${name}\n   🆔 ${adminId}`;
         }
 
       } else {
-        adminInfo += `\n\n- No Bot Admins Found.\n`;
+        adminInfo += `\n\n⚠️ No Bot Admins Found`;
       }
 
       if (botOperatorIds.length) {
-        adminInfo += `\n✨ 𝐁𝐨𝐭 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫𝐬:\n`;
+        adminInfo += `\n\n⚡ 𝐁𝐎𝐓 𝐎𝐏𝐄𝐑𝐀𝐓𝐎𝐑𝐒:\n`;
 
+        let i = 1;
         for (const operatorId of botOperatorIds) {
           let name = "Unknown";
           try {
             name = await usersData.getName(String(operatorId));
           } catch {}
 
-          adminInfo += `- 𝐍𝐚𝐦𝐞: ${name}\n  𝐈𝐃: ${operatorId}\n`;
+          adminInfo += `\n${i++}. 👤 ${name}\n   🆔 ${operatorId}`;
         }
 
       } else {
-        adminInfo += `\n- No Bot Operators Found.\n`;
+        adminInfo += `\n\n⚠️ No Bot Operators Found`;
       }
     }
 
     if (args[0]) {
       try {
-        const chatAdmins = await api.getChatAdministrators(chatId);
+        const chatAdmins = await bot.getChatAdministrators(chatId);
 
         if (chatAdmins?.length) {
-          adminInfo += `\n\n╭──────────────────╮
-☆ 𝐆𝐫𝐨𝐮𝐩 𝐀𝐝𝐦𝐢𝐧𝐬 ☆
-╰──────────────────╯`;
+          adminInfo += `\n\n╭━━━━━━━━━━━━━━━━━━╮
+👥 𝐆𝐑𝐎𝐔𝐏 𝐀𝐃𝐌𝐈𝐍𝐒
+╰━━━━━━━━━━━━━━━━━━╯`;
 
+          let i = 1;
           for (const admin of chatAdmins) {
             const name =
               admin.user.username ||
@@ -76,22 +79,22 @@ module.exports.onStart = async ({ message, event, api, usersData, args }) => {
 
             const adminId = admin.user.id;
 
-            adminInfo += `\n- 𝐍𝐚𝐦𝐞: ${name}\n  𝐈𝐃: ${adminId}`;
+            adminInfo += `\n\n${i++}. 👤 ${name}\n   🆔 ${adminId}`;
           }
 
         } else {
-          adminInfo += `\n\n- No Group Admins Found or not a group.`;
+          adminInfo += `\n\n⚠️ No Group Admins Found`;
         }
 
       } catch {
-        adminInfo += `\n\n- Cannot fetch group admins (maybe private chat).`;
+        adminInfo += `\n\n❌ Cannot fetch group admins`;
       }
     }
 
-    await message.reply(adminInfo);
+    return message.reply(adminInfo);
 
   } catch (error) {
-    console.log("Failed to get admin info:", error.message);
-    await message.reply(`❌ | Error: ${error.message}`);
+    console.log("ADMIN CMD ERROR:", error.message);
+    return message.reply(`❌ | Error: ${error.message}`);
   }
 };
