@@ -77,6 +77,7 @@ bot.on("message", async (msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id;
     const isBotAdmin = (config.admins || []).includes(userId); 
+    
     if (isBanned(userId)) {
   return bot.sendMessage(
     chatId,
@@ -86,7 +87,7 @@ bot.on("message", async (msg) => {
 if (global.adminOnly && !isBotAdmin) {
   return bot.sendMessage(
     chatId,
-    "🔒 | Admin Only Mode is ON"
+    "🔒 | 𝐁𝐨𝐭 𝐢𝐬 𝐢𝐧 𝐚𝐝𝐦𝐢𝐧-𝐨𝐧𝐥𝐲 𝐦𝐨𝐝𝐞 "
   );
 }
  
