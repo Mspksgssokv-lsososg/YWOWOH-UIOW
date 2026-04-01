@@ -76,7 +76,7 @@ bot.on("message", async (msg) => {
  
     const chatId = msg.chat.id;
     const userId = msg.from.id;
-    const isBotAdmin = (config.admins || []).includes(userId);
+    const isBotAdmin = (config.admins || []).includes(userId); 
     if (isBanned(userId)) {
   return bot.sendMessage(
     chatId,
@@ -92,7 +92,6 @@ if (global.adminOnly && !isBotAdmin) {
  
     saveThread(chatId);
  
-    const isBotAdmin = (config.admins || []).includes(userId);
     const isOperator = (config.botOperator || []).includes(userId);
  
     if (config.ignore_list_ID?.enable &&
