@@ -8,7 +8,7 @@ module.exports = {
   config: {
     name: "song",
     aliases: ["a"],
-    version: "2.0.0",
+    version: "3.0.0",
     author: "SK-SIDDIK-KHAN",
     description: "Search and download songs",
     category: "media",
@@ -35,6 +35,7 @@ module.exports = {
         return bot.sendMessage(chatId, "❌ No results found");
       }
 
+      // 🔘 buttons
       const buttons = list.map((item, i) => ([
         {
           text: `${i + 1}. ${item.title.substring(0, 30)}`,
@@ -54,6 +55,7 @@ module.exports = {
         reply_to_message_id: msg.message_id
       });
 
+      // ✅ save button handler
       global.client.handleButton.push({
         name: this.config.name,
         messageID: sent.message_id,
@@ -69,9 +71,16 @@ module.exports = {
 
   handleButton: async ({ bot, query, handleButton }) => {
     const chatId = query.message.chat.id;
-    const msgId = query.message.message_id;
 
     try {
+      // 🔒 only requester can click
+      if (query.from.id !== handleButton.author) {
+        return bot.answerCallbackQuery(query.id, {
+          text: "❌ Not your request",
+          show_alert: true
+        });
+      }
+
       const index = parseInt(query.data.split("_")[1]);
       const videoId = handleButton.links[index];
 
@@ -87,6 +96,7 @@ module.exports = {
       const audioUrl = data.data.audio;
       const title = data.data.title;
 
+      // 📁 cache folder
       const dir = path.join(__dirname, "cache");
       if (!fs.existsSync(dir)) fs.mkdirSync(dir);
 
