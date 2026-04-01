@@ -14,8 +14,8 @@ function saveConfig(data) {
 module.exports = {
   config: {
     name: "adminonly",
-    aliases: ["onlyadmin", "adonly"],
     author: "SK-SIDDIK-KHAN",
+    aliases: ["onlyadmin", "adonly"],
     role: 2,
     usePrefix: true,
     category: "admin",
@@ -39,14 +39,14 @@ module.exports = {
       data.adminOnly.enable = true;
       saveConfig(data);
 
-      return bot.sendMessage(chatId, "✅ Admin only mode ON");
+      return bot.sendMessage(chatId, "✅ Turned on the mode only admin can use bot");
     }
 
     if (action === "off") {
       data.adminOnly.enable = false;
       saveConfig(data);
 
-      return bot.sendMessage(chatId, "❌ Admin only mode OFF");
+      return bot.sendMessage(chatId, "❌ Turned off the mode only admin can use bot");
     }
 
     return bot.sendMessage(chatId,
