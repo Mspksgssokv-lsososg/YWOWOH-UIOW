@@ -15,11 +15,11 @@ module.exports = {
 
     if (!isBotJoined) return;
 
-    const infoMessage = `╭━━━━━━〔 🤖 ${me.first_name} 〕━━━━━━╮
+    const infoMessage = `╭━━━〔 🤖 ${me.first_name} 〕━━━╮
 ┃ Hello, dear! 👋
 ┃ I'm @${me.username}
 ┃ Ready to assist you 😎
-╰━━━━━━━━━━━━━━━━━━━━━━╯`;
+╰━━━━━━━━━━━━━━━━━━━━╯`;
 
     bot.sendMessage(event.chat.id, infoMessage);
   }
