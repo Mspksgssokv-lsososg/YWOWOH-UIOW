@@ -6,7 +6,7 @@ module.exports = {
   config: {
     name: "cmd",
     aliases: ["command"],
-    version: "3.0.0",
+    version: "3.1.0",
     author: "SK-SIDDIK-KHAN",
     description: "Manage commands system",
     usage: "cmd <install|loadall|load|unload|reload>",
@@ -16,77 +16,77 @@ module.exports = {
   },
 
   async onStart({ message, args, event }) {
-    const userId = event.from.id;
+    try {
+      const userId = event.from.id;
 
-    // ✅ MAIN.JS STYLE ADMIN CHECK (NO CONFIG LOAD)
-    const isBotAdmin = (global.config.admins || []).some(id => String(id) === String(userId));
+      const isBotAdmin = (global.config.admins || []).some(
+        id => String(id) === String(userId)
+      );
 
-    if (!isBotAdmin) {
-      return message.reply("❌ | Only bot admin can use this command.");
-    }
-
-    const subcmd = args[0]?.toLowerCase();
-    const cmdFolder = __dirname;
-    const commands = global.commands;
-
-    if (!subcmd) {
-      return message.reply("⚠️ Usage: cmd <install|loadall|load|unload|reload>");
-    }
-
-    function clearCache(filePath) {
-      try {
-        delete require.cache[require.resolve(filePath)];
-      } catch {}
-    }
-
-    function register(cmd) {
-      if (!cmd?.config?.name) return false;
-
-      const name = cmd.config.name.toLowerCase();
-
-      // remove old aliases if reload
-      commands.forEach((value, key) => {
-        if (value === cmd) commands.delete(key);
-      });
-
-      commands.set(name, cmd);
-
-      if (Array.isArray(cmd.config.aliases)) {
-        cmd.config.aliases.forEach(a => {
-          commands.set(a.toLowerCase(), cmd);
-        });
+      if (!isBotAdmin) {
+        return message.reply("❌ | Only bot admin can use this command");
       }
 
-      return true;
-    }
+      const subcmd = args[0]?.toLowerCase();
+      const cmdFolder = __dirname;
+      const commands = global.commands;
 
-    try {
+      if (!subcmd) {
+        return message.reply("⚠️ Usage: cmd <install|loadall|load|unload|reload>");
+      }
 
-      // ================= INSTALL =================
+      const clearCache = (filePath) => {
+        try {
+          delete require.cache[require.resolve(filePath)];
+        } catch {}
+      };
+
+      const register = (cmd) => {
+        if (!cmd?.config?.name) return false;
+
+        const name = cmd.config.name.toLowerCase();
+
+        commands.forEach((value, key) => {
+          if (value.config?.name?.toLowerCase() === name) {
+            commands.delete(key);
+          }
+        });
+
+        commands.set(name, cmd);
+
+        if (Array.isArray(cmd.config.aliases)) {
+          cmd.config.aliases.forEach(a => {
+            commands.set(a.toLowerCase(), cmd);
+          });
+        }
+
+        return true;
+      };
+
       if (subcmd === "install") {
         const fileName = args[1];
         const url = args[2];
 
-        if (!fileName || !url)
+        if (!fileName || !url) {
           return message.reply("⚠️ cmd install <file.js> <url>");
+        }
 
         const filePath = path.join(cmdFolder, fileName);
 
         const res = await axios.get(url);
-        fs.writeFileSync(filePath, res.data);
+        fs.writeFileSync(filePath, res.data, "utf-8");
 
         clearCache(filePath);
         const cmd = require(filePath);
 
         if (!register(cmd)) {
           fs.unlinkSync(filePath);
-          return message.reply("❌ Invalid command");
+          return message.reply("❌ Invalid command file");
         }
 
-        return message.reply(`✅ Installed ${cmd.config.name}`);
+        return message.reply(`✅ Installed: ${cmd.config.name}`);
       }
 
-      // ================= LOAD ALL =================
       if (subcmd === "loadall") {
         const files = fs.readdirSync(cmdFolder).filter(f => f.endsWith(".js"));
 
@@ -108,55 +108,66 @@ module.exports = {
           }
         }
 
-        return message.reply(`✅ Loaded: ${ok}\n❌ Failed: ${fail}`);
+        if (fail === 0) {
+          return message.reply(`✅ Command Loaded Successfully : ${ok}`);
+        } else {
+          return message.reply(`✅ Loaded: ${ok}\n❌ Failed: ${fail}`);
+        }
       }
 
-      // ================= UNLOAD =================
       if (subcmd === "unload") {
         const name = args[1]?.toLowerCase();
         if (!name) return message.reply("⚠️ cmd unload <name>");
 
         const cmd = commands.get(name);
-        if (!cmd) return message.reply("❌ Not found");
+        if (!cmd) return message.reply("❌ Command not found");
 
         const realName = cmd.config.name.toLowerCase();
 
         commands.delete(realName);
         (cmd.config.aliases || []).forEach(a => commands.delete(a));
 
-        return message.reply(`✅ Unloaded ${realName}`);
+        return message.reply(`✅ Unloaded: ${realName}`);
       }
 
-      // ================= LOAD =================
       if (subcmd === "load") {
         const name = args[1]?.toLowerCase();
         if (!name) return message.reply("⚠️ cmd load <name>");
 
         const filePath = path.join(cmdFolder, name + ".js");
 
+        if (!fs.existsSync(filePath)) {
+          return message.reply("❌ File not found");
+        }
+
         clearCache(filePath);
         const cmd = require(filePath);
 
-        if (!register(cmd))
+        if (!register(cmd)) {
           return message.reply("❌ Invalid command");
+        }
 
-        return message.reply(`✅ Loaded ${name}`);
+        return message.reply(`✅ Loaded: ${name}`);
       }
 
-      // ================= RELOAD =================
       if (subcmd === "reload") {
         const name = args[1]?.toLowerCase();
         if (!name) return message.reply("⚠️ cmd reload <name>");
 
         const filePath = path.join(cmdFolder, name + ".js");
 
+        if (!fs.existsSync(filePath)) {
+          return message.reply("❌ File not found");
+        }
+
         clearCache(filePath);
         const cmd = require(filePath);
 
-        if (!register(cmd))
+        if (!register(cmd)) {
           return message.reply("❌ Invalid command");
+        }
 
-        return message.reply(`🔄 Reloaded ${name}`);
+        return message.reply(`🔄 Reloaded: ${name}`);
       }
 
       return message.reply("❌ Invalid subcommand");
