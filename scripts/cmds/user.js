@@ -3,7 +3,7 @@ const path = require("path");
 
 const banFile = path.join(process.cwd(), "banned.json");
 
-// ===== AUTO CREATE =====
+// ===== AUTO CREATE FILE =====
 if (!fs.existsSync(banFile)) {
   fs.writeFileSync(banFile, "[]");
 }
@@ -35,17 +35,26 @@ module.exports = {
 
     let banned = getBanned();
 
-    // ===== LIST =====
-    if (action === "list") {
+    // ===== LIST ( /user list OR /user ban list ) =====
+    if (action === "list" || (action === "ban" && args[1] === "list")) {
+
       if (!banned.length) {
         return bot.sendMessage(chatId, "No banned users");
       }
 
-      let text = "Banned Users:\n";
+      let text = "╭━━━━━━━━━━━━━━╮\n🚫 BANNED USERS\n╰━━━━━━━━━━━━━━╯\n\n";
       let i = 1;
 
       for (const id of banned) {
-        text += `${i++}. ${id}\n`;
+        try {
+          const user = await bot.getChat(id);
+          const name = user.first_name + (user.last_name ? " " + user.last_name : "");
+
+          text += `${i++}. 👤 ${name}\n🆔 ${id}\n\n`;
+
+        } catch (err) {
+          text += `${i++}. 👤 Unknown User\n🆔 ${id}\n\n`;
+        }
       }
 
       return bot.sendMessage(chatId, text);
@@ -53,12 +62,18 @@ module.exports = {
 
     // ===== BAN =====
     if (action === "ban") {
+
       const userId =
         args[1] ||
         (msg.reply_to_message && msg.reply_to_message.from.id);
 
       if (!userId) {
-        return bot.sendMessage(chatId, "Reply or give userId");
+        return bot.sendMessage(chatId,
+`Usage:
+/user ban <id/reply>
+/user unban <id/reply>
+/user list`
+        );
       }
 
       if (banned.includes(String(userId))) {
@@ -68,11 +83,12 @@ module.exports = {
       banned.push(String(userId));
       saveBanned(banned);
 
-      return bot.sendMessage(chatId, `Banned ${userId}`);
+      return bot.sendMessage(chatId, `🚫 Banned ${userId}`);
     }
 
     // ===== UNBAN =====
     if (action === "unban") {
+
       const userId =
         args[1] ||
         (msg.reply_to_message && msg.reply_to_message.from.id);
@@ -88,7 +104,7 @@ module.exports = {
       banned = banned.filter(id => id !== String(userId));
       saveBanned(banned);
 
-      return bot.sendMessage(chatId, `Unbanned ${userId}`);
+      return bot.sendMessage(chatId, `✅ Unbanned ${userId}`);
     }
 
     // ===== INVALID =====
