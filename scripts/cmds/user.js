@@ -3,12 +3,10 @@ const path = require("path");
 
 const banFile = path.join(process.cwd(), "banned.json");
 
-// ===== AUTO CREATE FILE =====
 if (!fs.existsSync(banFile)) {
   fs.writeFileSync(banFile, "[]");
 }
 
-// ===== FUNCTIONS =====
 function getBanned() {
   try {
     return JSON.parse(fs.readFileSync(banFile));
@@ -24,6 +22,7 @@ function saveBanned(data) {
 module.exports = {
   config: {
     name: "user",
+    author: "SK-SIDDIK-KHAN',
     role: 2,
     category: "admin",
     description: "User ban system"
@@ -35,7 +34,6 @@ module.exports = {
 
     let banned = getBanned();
 
-    // ===== LIST ( /user list OR /user ban list ) =====
     if (action === "list" || (action === "ban" && args[1] === "list")) {
 
       if (!banned.length) {
@@ -60,7 +58,6 @@ module.exports = {
       return bot.sendMessage(chatId, text);
     }
 
-    // ===== BAN =====
     if (action === "ban") {
 
       const userId =
@@ -83,10 +80,9 @@ module.exports = {
       banned.push(String(userId));
       saveBanned(banned);
 
-      return bot.sendMessage(chatId, `🚫 Banned ${userId}`);
+      return bot.sendMessage(chatId, `🚫 Banned Successfully ${userId}`);
     }
 
-    // ===== UNBAN =====
     if (action === "unban") {
 
       const userId =
@@ -104,10 +100,9 @@ module.exports = {
       banned = banned.filter(id => id !== String(userId));
       saveBanned(banned);
 
-      return bot.sendMessage(chatId, `✅ Unbanned ${userId}`);
+      return bot.sendMessage(chatId, `✅ Unbanned Successfully ${userId}`);
     }
 
-    // ===== INVALID =====
     return bot.sendMessage(chatId,
 `Usage:
 /user ban <id/reply>
