@@ -76,6 +76,7 @@ bot.on("message", async (msg) => {
  
     const chatId = msg.chat.id;
     const userId = msg.from.id;
+    const isBotAdmin = (config.admins || []).includes(userId);
     if (isBanned(userId)) {
   return bot.sendMessage(
     chatId,
