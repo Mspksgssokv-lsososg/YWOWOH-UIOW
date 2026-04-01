@@ -3,9 +3,9 @@ module.exports = {
     name: "adminonly",
     aliases: ["aonly", "adm"],
     version: "1.0",
-    author: "Siddik",
-    role: 2, // only bot admin
-    description: "Turn ON/OFF admin only mode",
+    author: "SK-SIDDIK-KHAN",
+    role: 2, 
+    description: "Turn On/Off admin only mode",
     category: "system",
     guide: "/adminonly on | off"
   },
@@ -21,16 +21,16 @@ module.exports = {
 
       if (args[0].toLowerCase() === "on") {
         global.adminOnly = true;
-        return message.reply("✅ | Admin Only Mode ENABLED");
+        return message.reply("✅ Turned on the mode only admin can use bot");
       }
 
       if (args[0].toLowerCase() === "off") {
         global.adminOnly = false;
-        return message.reply("❌ | Admin Only Mode DISABLED");
+        return message.reply("❌ Turned off the mode only admin can use bot");
       }
 
       return message.reply(
-        "⚙️ | Invalid option!\nUse:\n/adminonly on\n/adminonly off"
+        "⚙️ | Invalid option\nUse:\n/adminonly on\n/adminonly off"
       );
 
     } catch (err) {
