@@ -19,12 +19,10 @@ module.exports = {
 
     const threadFile = path.join(process.cwd(), "threads.json");
 
-    // ✅ AUTO CREATE FILE
     if (!fs.existsSync(threadFile)) {
       fs.writeFileSync(threadFile, "[]");
     }
 
-    // ✅ LOAD THREADS
     let threadIDs = [];
     try {
       threadIDs = JSON.parse(fs.readFileSync(threadFile));
@@ -33,7 +31,6 @@ module.exports = {
       fs.writeFileSync(threadFile, "[]");
     }
 
-    // ✅ AUTO SAVE CURRENT CHAT
     if (!threadIDs.includes(chatId)) {
       threadIDs.push(chatId);
       fs.writeFileSync(threadFile, JSON.stringify(threadIDs));
