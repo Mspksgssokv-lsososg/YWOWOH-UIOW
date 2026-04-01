@@ -1,9 +1,9 @@
-const { adminBot = [], botOperator = [] } = global.config; // ✅ FIX
+const { admins, botOperator } = global.config;
 
 module.exports.config = {
   name: "call",
   aliases: ["report"],
-  version: "1.1.0",
+  version: "2.0.0",
   role: 0,
   author: "dipto",
   description: "Send a call/report to bot admins and operators.",
@@ -13,18 +13,19 @@ module.exports.config = {
   countDown: 5,
 };
 
-// 🔁 REPLY SYSTEM
-module.exports.onReply = async function ({ message, event, Reply, api, usersData }) {
+// ================== REPLY SYSTEM ==================
+module.exports.onReply = async ({ message, event, Reply, api, usersData }) => {
   const { type, target, message_ID, author } = Reply;
 
   try {
-    // ✅ ADMIN REPLY → USER
+
+    // 🔁 ADMIN REPLY → USER
     if (
       type === "adminReply" &&
-      (adminBot.includes(event.from.id) || botOperator.includes(event.from.id))
+      (admins.includes(event.from.id) || botOperator.includes(event.from.id))
     ) {
-      const feedbackMessage = event.text;
       const adminName = await usersData.getName(event.from.id);
+      const feedbackMessage = event.text;
 
       const info = await api.sendMessage(
         target,
@@ -32,73 +33,84 @@ module.exports.onReply = async function ({ message, event, Reply, api, usersData
         { reply_to_message_id: message_ID }
       );
 
-      global.functions.onReply.set(info.message_id, {
-        commandName: module.exports.config.name, // ✅ FIX
+      global.client.onReply.set(info.message_id, {
+        commandName: this.config.name,
         type: "userReply",
         message_ID: info.message_id,
         author: event.from.id,
-        target: event.chat.id,
+        target: target,
       });
 
-      return message.reply("✅ | Reply sent to user.");
+      return message.reply("✅ | Reply sent to user");
     }
 
-    // ✅ USER REPLY → ADMIN
+    // 🔁 USER REPLY → ADMIN
     else if (type === "userReply") {
-      const userMessage = event.text;
       const userName = await usersData.getName(event.from.id);
+      const userMessage = event.text;
 
       const info = await api.sendMessage(
         author,
         `📨 Message from User (${userName}):\n${userMessage}`
       );
 
-      global.functions.onReply.set(info.message_id, {
-        commandName: module.exports.config.name, // ✅ FIX
+      global.client.onReply.set(info.message_id, {
+        commandName: this.config.name,
         type: "adminReply",
         message_ID: event.message_id,
         author: event.from.id,
         target: event.chat.id,
       });
 
-      return message.reply("✅ | Message sent to admin.");
+      return message.reply("✅ | Message sent to admin");
     }
+
   } catch (err) {
-    console.log("Error in onReply:", err.message);
-    return message.reply(`❌ | Error: ${err.message}`);
+    console.log("Reply Error:", err.message);
+    message.reply("❌ | Reply system error");
   }
 };
 
-// 🚀 START COMMAND
-module.exports.onStart = async function ({ api, message, args, event, usersData }) {
+// ================== START ==================
+module.exports.onStart = async ({ api, message, args, event, usersData }) => {
   try {
     const author = event.from.id;
     const reportMessage = args.join(" ").trim();
 
     if (!reportMessage) {
       return message.reply(
-        "⚠️ | Please provide a message.\nExample:\n/call Bot is not working"
+        "⚠️ | Example:\n/call This is a report message"
       );
     }
 
-    for (const recipient of adminBot) {
-      const info = await api.sendMessage(
-        recipient,
-        `📢 REPORT\nFrom: ${await usersData.getName(author)}\n\nMessage: ${reportMessage}\n\n↩️ Reply to respond.`
-      );
+    // 🔥 SEND TO ALL ADMINS
+    for (const adminID of admins) {
+      try {
+        const info = await api.sendMessage(
+          adminID,
+          `📢 REPORT\nFrom: ${await usersData.getName(author)}\n\nMessage:\n${reportMessage}\n\n↩️ Reply to respond`
+        );
 
-      global.functions.onReply.set(info.message_id, {
-        commandName: module.exports.config.name, // ✅ FIX
-        type: "adminReply",
-        message_ID: event.message_id,
-        author: author,
-        target: event.chat.id,
-      });
+        // save reply
+        global.client.onReply.set(info.message_id, {
+          commandName: this.config.name,
+          type: "adminReply",
+          message_ID: event.message_id,
+          author: author,
+          target: event.chat.id,
+        });
+
+        console.log("✅ Sent to admin:", adminID);
+
+      } catch (e) {
+        console.log("❌ Failed to send to:", adminID, e.message);
+      }
     }
 
-    return message.reply("✅ | Report sent to admins.");
+    message.reply("✅ | Report sent to admins");
+
   } catch (error) {
-    console.log("Report Error:", error.message);
-    return message.reply(`❌ | Error: ${error.message}`);
+    console.log("Start Error:", error.message);
+    message.reply("❌ | Failed to send report");
   }
 };
