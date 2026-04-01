@@ -1,180 +1,238 @@
-const fs = require("fs");
-const path = require("path");
 const axios = require("axios");
+const fs = require("fs-extra");
+const path = require("path");
+
+function isURL(str) {
+    try {
+        new URL(str);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function getDomain(url) {
+    const match = url.match(/^(?:https?:\/\/)?(?:[^@\n]+@)?(?:www\.)?([^:/\n]+)/i);
+    return match ? match[1] : null;
+}
 
 module.exports = {
-  config: {
-    name: "cmd",
-    aliases: ["command"],
-    version: "3.1.0",
-    author: "SK-SIDDIK-KHAN",
-    description: "Manage commands system",
-    usage: "cmd <install|loadall|load|unload|reload>",
-    category: "admin",
-    role: 2,
-    usePrefix: true
-  },
+    config: {
+        name: "cmd",
+        version: "1.0.1",
+        author: "SK-SIDDIK-KHAN (fixed)",
+        countDown: 5,
+        role: 3,
+        category: "owner",
+        usePrefix: true
+    },
 
-  async onStart({ message, args, event }) {
-    try {
-      const userId = event.from.id;
+    onStart: async function ({ sock, chatId, args, event, getLang, prefix }) {
+        const commandPath = path.join(process.cwd(), "scripts", "cmds");
+        const commands = global.NixBot.commands;
+        const events = global.NixBot.eventCommands;
 
-      const isBotAdmin = (global.config.admins || []).some(
-        id => String(id) === String(userId)
-      );
-
-      if (!isBotAdmin) {
-        return message.reply("❌ | Only bot admin can use this command");
-      }
-
-      const subcmd = args[0]?.toLowerCase();
-      const cmdFolder = __dirname;
-      const commands = global.commands;
-
-      if (!subcmd) {
-        return message.reply("⚠️ Usage: cmd <install|loadall|load|unload|reload>");
-      }
-
-      const clearCache = (filePath) => {
-        try {
-          delete require.cache[require.resolve(filePath)];
-        } catch {}
-      };
-
-      const register = (cmd) => {
-        if (!cmd?.config?.name) return false;
-
-        const name = cmd.config.name.toLowerCase();
-
-        commands.forEach((value, key) => {
-          if (value.config?.name?.toLowerCase() === name) {
-            commands.delete(key);
-          }
-        });
-
-        commands.set(name, cmd);
-
-        if (Array.isArray(cmd.config.aliases)) {
-          cmd.config.aliases.forEach(a => {
-            commands.set(a.toLowerCase(), cmd);
-          });
+        if (!args[0]) {
+            return sock.sendMessage(chatId, { text: "⚠️ | Invalid syntax" }, { quoted: event });
         }
 
-        return true;
-      };
+        const subCmd = args[0].toLowerCase();
 
-      if (subcmd === "install") {
-        const fileName = args[1];
-        const url = args[2];
+        // ================= LOAD =================
+        if (subCmd === "load") {
+            const list = args.slice(1);
+            if (list.length === 0) {
+                return sock.sendMessage(chatId, { text: "⚠️ | Enter command name" }, { quoted: event });
+            }
 
-        if (!fileName || !url) {
-          return message.reply("⚠️ cmd install <file.js> <url>");
+            const success = [];
+            const failed = [];
+
+            for (let fileName of list) {
+                if (!fileName.endsWith(".js")) fileName += ".js";
+                const filePath = path.join(commandPath, fileName);
+
+                if (!fs.existsSync(filePath)) {
+                    failed.push(`${fileName} => Not found`);
+                    continue;
+                }
+
+                try {
+                    const fullPath = require.resolve(filePath);
+
+                    // remove old
+                    if (require.cache[fullPath]) {
+                        const old = require(fullPath);
+                        if (old?.config?.name) {
+                            commands.delete(old.config.name);
+                            if (old.config.aliases) {
+                                for (const a of old.config.aliases) {
+                                    commands.delete(a);
+                                    global.NixBot.aliases.delete(a);
+                                }
+                            }
+                            const i = events.findIndex(e => e.config?.name === old.config.name);
+                            if (i !== -1) events.splice(i, 1);
+                        }
+                    }
+
+                    delete require.cache[fullPath];
+                    const cmd = require(fullPath);
+
+                    if (!cmd?.config?.name) {
+                        failed.push(`${fileName} => Invalid config`);
+                        continue;
+                    }
+
+                    commands.set(cmd.config.name, cmd);
+
+                    if (cmd.config.aliases) {
+                        for (const a of cmd.config.aliases) {
+                            commands.set(a, cmd);
+                            global.NixBot.aliases.set(a, cmd.config.name);
+                        }
+                    }
+
+                    if (["onChat","onEvent","onReply","onReaction","onCall"].some(fn => typeof cmd[fn] === "function")) {
+                        events.push(cmd);
+                    }
+
+                    success.push(cmd.config.name);
+
+                } catch (e) {
+                    failed.push(`${fileName} => ${e.message}`);
+                }
+            }
+
+            return sock.sendMessage(chatId, {
+                text:
+                    `✅ Loaded: ${success.length}\n` +
+                    (failed.length ? `❌ Failed: ${failed.length}\n${failed.join("\n")}` : "")
+            }, { quoted: event });
         }
 
-        const filePath = path.join(cmdFolder, fileName);
+        // ================= LOAD ALL =================
+        if (subCmd === "loadall") {
+            const files = fs.readdirSync(commandPath).filter(f => f.endsWith(".js"));
+            let ok = 0, fail = 0;
 
-        const res = await axios.get(url);
-        fs.writeFileSync(filePath, res.data, "utf-8");
+            for (const file of files) {
+                try {
+                    const fullPath = require.resolve(path.join(commandPath, file));
+                    delete require.cache[fullPath];
+                    const cmd = require(fullPath);
+                    if (cmd?.config?.name) {
+                        commands.set(cmd.config.name, cmd);
+                        ok++;
+                    } else fail++;
+                } catch {
+                    fail++;
+                }
+            }
 
-        clearCache(filePath);
-        const cmd = require(filePath);
-
-        if (!register(cmd)) {
-          fs.unlinkSync(filePath);
-          return message.reply("❌ Invalid command file");
+            return sock.sendMessage(chatId, {
+                text: `✅ Loaded: ${ok}\n❌ Failed: ${fail}`
+            }, { quoted: event });
         }
 
-        return message.reply(`✅ Installed: ${cmd.config.name}`);
-      }
+        // ================= UNLOAD =================
+        if (subCmd === "unload") {
+            const name = args[1];
+            if (!name) {
+                return sock.sendMessage(chatId, { text: "⚠️ | Enter command name" }, { quoted: event });
+            }
 
-      if (subcmd === "loadall") {
-        const files = fs.readdirSync(cmdFolder).filter(f => f.endsWith(".js"));
+            const cmd = commands.get(name);
+            if (!cmd) {
+                return sock.sendMessage(chatId, { text: "❌ | Command not found" }, { quoted: event });
+            }
 
-        let ok = 0, fail = 0;
+            const configName = cmd.config?.name;
 
-        for (const file of files) {
-          try {
-            const filePath = path.join(cmdFolder, file);
+            if (cmd.config?.aliases) {
+                for (const a of cmd.config.aliases) {
+                    commands.delete(a);
+                    global.NixBot.aliases.delete(a);
+                }
+            }
 
-            clearCache(filePath);
-            const cmd = require(filePath);
+            commands.delete(configName);
 
-            if (register(cmd)) ok++;
-            else fail++;
+            const i = events.findIndex(e => e.config?.name === configName);
+            if (i !== -1) events.splice(i, 1);
 
-          } catch (e) {
-            console.log("LoadAll Error:", e.message);
-            fail++;
-          }
+            return sock.sendMessage(chatId, {
+                text: `✅ | Unloaded "${configName}"`
+            }, { quoted: event });
         }
 
-        if (fail === 0) {
-          return message.reply(`✅ Command Loaded Successfully : ${ok}`);
-        } else {
-          return message.reply(`✅ Loaded: ${ok}\n❌ Failed: ${fail}`);
+        // ================= INSTALL =================
+        if (subCmd === "install") {
+            let url = args[1];
+            let fileName = args[2];
+
+            if (!url) {
+                return sock.sendMessage(chatId, {
+                    text: "⚠️ | Usage: cmd install <url> <name.js>"
+                }, { quoted: event });
+            }
+
+            let rawCode;
+
+            if (isURL(url)) {
+                if (!fileName || !fileName.endsWith(".js")) {
+                    return sock.sendMessage(chatId, { text: "⚠️ | File name must be .js" }, { quoted: event });
+                }
+
+                try {
+                    if (url.includes("github.com")) {
+                        url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/");
+                    }
+
+                    const res = await axios.get(url);
+                    rawCode = res.data;
+                } catch (e) {
+                    return sock.sendMessage(chatId, {
+                        text: `❌ | Download failed\n${e.message}`
+                    }, { quoted: event });
+                }
+            } else {
+                return sock.sendMessage(chatId, {
+                    text: "⚠️ | Invalid URL"
+                }, { quoted: event });
+            }
+
+            const filePath = path.join(commandPath, fileName);
+
+            try {
+                fs.writeFileSync(filePath, rawCode);
+
+                const fullPath = require.resolve(filePath);
+                delete require.cache[fullPath];
+
+                const cmd = require(fullPath);
+
+                if (!cmd?.config?.name) {
+                    return sock.sendMessage(chatId, {
+                        text: "❌ | Invalid command file"
+                    }, { quoted: event });
+                }
+
+                commands.set(cmd.config.name, cmd);
+
+                return sock.sendMessage(chatId, {
+                    text: `✅ | Installed "${cmd.config.name}"`
+                }, { quoted: event });
+
+            } catch (e) {
+                return sock.sendMessage(chatId, {
+                    text: `❌ | Install error\n${e.message}`
+                }, { quoted: event });
+            }
         }
-      }
 
-      if (subcmd === "unload") {
-        const name = args[1]?.toLowerCase();
-        if (!name) return message.reply("⚠️ cmd unload <name>");
-
-        const cmd = commands.get(name);
-        if (!cmd) return message.reply("❌ Command not found");
-
-        const realName = cmd.config.name.toLowerCase();
-
-        commands.delete(realName);
-        (cmd.config.aliases || []).forEach(a => commands.delete(a));
-
-        return message.reply(`✅ Unloaded: ${realName}`);
-      }
-
-      if (subcmd === "load") {
-        const name = args[1]?.toLowerCase();
-        if (!name) return message.reply("⚠️ cmd load <name>");
-
-        const filePath = path.join(cmdFolder, name + ".js");
-
-        if (!fs.existsSync(filePath)) {
-          return message.reply("❌ File not found");
-        }
-
-        clearCache(filePath);
-        const cmd = require(filePath);
-
-        if (!register(cmd)) {
-          return message.reply("❌ Invalid command");
-        }
-
-        return message.reply(`✅ Loaded: ${name}`);
-      }
-
-      if (subcmd === "reload") {
-        const name = args[1]?.toLowerCase();
-        if (!name) return message.reply("⚠️ cmd reload <name>");
-
-        const filePath = path.join(cmdFolder, name + ".js");
-
-        if (!fs.existsSync(filePath)) {
-          return message.reply("❌ File not found");
-        }
-
-        clearCache(filePath);
-        const cmd = require(filePath);
-
-        if (!register(cmd)) {
-          return message.reply("❌ Invalid command");
-        }
-
-        return message.reply(`🔄 Reloaded: ${name}`);
-      }
-
-      return message.reply("❌ Invalid subcommand");
-
-    } catch (err) {
-      console.error("CMD ERROR:", err);
-      return message.reply("❌ Error: " + err.message);
+        return sock.sendMessage(chatId, {
+            text: "⚠️ | Invalid command"
+        }, { quoted: event });
     }
-  }
 };
