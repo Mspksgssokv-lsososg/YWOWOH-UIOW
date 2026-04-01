@@ -1,8 +1,8 @@
 module.exports = {
   config: {
     name: "groupinfo",
-    aliases: ["grpinfo"],
-    version: "2.1.0",
+    aliases: ["boxinfo"],
+    version: "3.0.0",
     author: "SK-SIDDIK-KHAN",
     description: "Get group information",
     category: "group",
@@ -20,57 +20,25 @@ module.exports = {
     try {
       const chat = await bot.getChat(chatId);
 
-      let memberCount = "Unknown";
-      try {
-        memberCount = await bot.getChatMemberCount(chatId);
-      } catch {
-        memberCount = "N/A";
-      }
-
-      let admins = [];
-      try {
-        admins = await bot.getChatAdministrators(chatId);
-      } catch {
-        admins = [];
-      }
-
-      const escape = (text = "") =>
-        text.toString().replace(/([_*[\]()~`>#+\-=|{}.!])/g, "\\$1");
-
-      const adminList = admins.length
-        ? admins.map(a => {
-            const name = a.user.username
-              ? `@${escape(a.user.username)}`
-              : escape(a.user.first_name);
-            return `┃ 👤 ${name}`;
-          }).join("\n")
-        : "┃ ❌ No admin data";
+      const escape = (t = "") =>
+        t.toString().replace(/([_*[\]()~`>#+\-=|{}.!])/g, "\\$1");
 
       let text = `
 ╭━━━〔 👥 GROUP INFO 〕━━━╮
 ┃ 🏷️ Name   : ${escape(chat.title || "Unknown")}
 ┃ 🆔 ID     : \`${chatId}\`
-┃ 👥 Members: ${memberCount}
-┣━━━━━━━━━━━━━━━━━━━
-┃ 👑 Admins:
-${adminList}
+┃ 📌 Type   : ${chat.type}
+┃ 🔗 Username: ${chat.username ? "@" + chat.username : "Private"}
 ╰━━━━━━━━━━━━━━━━━━━╯
 `;
 
-      if (chat.photo?.big_file_id) {
-        await bot.sendPhoto(chatId, chat.photo.big_file_id, {
-          caption: text,
-          parse_mode: "MarkdownV2"
-        });
-      } else {
-        await bot.sendMessage(chatId, text, {
-          parse_mode: "MarkdownV2"
-        });
-      }
+      await bot.sendMessage(chatId, text, {
+        parse_mode: "MarkdownV2"
+      });
 
     } catch (err) {
-      console.log("❌ FULL ERROR:", err);
-      message.reply("❌ | Bot needs admin permission or API failed");
+      console.log("❌ REAL ERROR:", err.message);
+      message.reply("❌ | API blocked / bot limited");
     }
   }
 };
