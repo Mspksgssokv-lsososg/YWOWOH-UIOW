@@ -1,11 +1,12 @@
 const axios = require("axios");
+const Youtube = require("youtube-search-api");
 const nayan = require("nayan-media-downloaders");
 
 module.exports = {
   config: {
     name: "song",
     aliases: ["a"],
-    version: "1.0.0",
+    version: "2.1.0",
     author: "SK-SIDDIK-KHAN",
     category: "media",
     role: 0,
@@ -21,10 +22,21 @@ module.exports = {
     }
 
     try {
-      const wait = await bot.sendMessage(chatId, "⏳ Searching...");
+      const wait = await bot.sendMessage(chatId, "🔍 Searching...");
 
-      // direct search + download
-      const data = await nayan.ytdown(query);
+      // 🔎 Search YouTube
+      const res = await Youtube.GetListByKeyword(query, false, 1);
+      const video = res.items[0];
+
+      if (!video) {
+        return bot.sendMessage(chatId, "❌ | No song found");
+      }
+
+      const videoUrl = `https://www.youtube.com/watch?v=${video.id}`;
+
+      // 🎧 Download
+      const data = await nayan.ytdown(videoUrl);
+
       const audio = data.data.audio;
       const title = data.data.title;
 
@@ -36,7 +48,7 @@ module.exports = {
 
     } catch (err) {
       console.log(err);
-      bot.sendMessage(chatId, "❌ | Song not found");
+      bot.sendMessage(chatId, "❌ | Download failed");
     }
   }
 };
