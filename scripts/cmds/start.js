@@ -2,51 +2,56 @@ module.exports = {
   config: {
     name: "start",
     aliases: [],
-    description: "Displays the premium start menu",
-    version: "2.0.0",
+    description: "Displays start menu",
+    version: "3.1.0",
     author: "SK-SIDDIK-KHAN",
     category: "general",
     role: 0,
     usePrefix: true
   },
 
-  run: async ({ bot, msg, message }) => {
+  run: async ({ bot, msg }) => {
     const chatId = msg.chat.id;
     const user = msg.from;
 
     const firstName = user.first_name || "";
     const lastName = user.last_name || "";
+
     const prefix = global.config?.prefix || "/";
 
     const text = `
-╭━━━〔 ✨ 𝗦𝗧𝗔𝗥𝗧 𝗠𝗘𝗡𝗨 ✨ 〕━━━╮
+╭━━━〔 ✨ 𝗦𝗜𝗗𝗗𝗜𝗞 𝗕𝗢𝗧 ✨ 〕━━━╮
 ┃ 👋 Hello ${firstName} ${lastName}
 ┃
 ┃ 🤖 Welcome to *SIDDIK BOT*
+┃ 💡 Your smart assistant
 ┣━━━━━━━━━━━━━━━━━━━
-┃ 📌 𝗙𝗘𝗔𝗧𝗨𝗥𝗘𝗦
-┃ 🔒 Lock System  → ${prefix}lock
-┃ 🤖 Gemini AI    → ${prefix}gemini
-┃ 🖼 Image AI     → ${prefix}img
-┃ 💬 Chat GPT     → ${prefix}ai
-┃ ⚙️ All Command  → ${prefix}help
+┃ ⚙️ Prefix : ${prefix}
+┃ 📌 Use : ${prefix}help
 ┣━━━━━━━━━━━━━━━━━━━
-┃ 🚀 𝗧𝗜𝗣𝗦
-┃ • Use ${prefix}help to explore
-┃ • Reply image with ${prefix}img
-┃ • Try AI chat anytime
+┃ 💎 Premium Experience Active
+┃ 🚀 Fast • Smart • Responsive
 ┣━━━━━━━━━━━━━━━━━━━
-┃ 💎 Premium System Active
+┃ 👑 Owner : SK SIDDIK KHAN
 ╰━━━━━━━━━━━━━━━━━━━╯
 `;
 
     try {
       await bot.sendMessage(chatId, text, {
-        parse_mode: "Markdown"
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "📖 Commands", url: "https://t.me/busy1here" }
+            ],
+            [
+              { text: "🔗 Bot Owner", url: "https://t.me/busy1here" }
+            ]
+          ]
+        }
       });
     } catch (err) {
       console.log("❌ start error:", err);
-      message.reply("❌ | Failed to send start menu");
     }
   }
 };
