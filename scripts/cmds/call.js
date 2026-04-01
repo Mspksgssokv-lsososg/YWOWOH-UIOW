@@ -3,7 +3,7 @@ const { admins, botOperator } = global.config;
 module.exports.config = {
   name: "call",
   aliases: ["report"],
-  version: "3.0.0",
+  version: "4.0.0",
   role: 0,
   author: "dipto",
   description: "Send a call/report to bot admins and operators.",
@@ -33,7 +33,7 @@ module.exports.onReply = async ({ bot, message, event, Reply, usersData }) => {
         { reply_to_message_id: message_ID }
       );
 
-      global.client.onReply.set(msg.message_id, {
+      global.functions.onReply.set(msg.message_id, {
         commandName: this.config.name,
         type: "userReply",
         message_ID: msg.message_id,
@@ -54,7 +54,7 @@ module.exports.onReply = async ({ bot, message, event, Reply, usersData }) => {
         `📨 Message from User (${userName}):\n${text}`
       );
 
-      global.client.onReply.set(msg.message_id, {
+      global.functions.onReply.set(msg.message_id, {
         commandName: this.config.name,
         type: "adminReply",
         message_ID: event.message_id,
@@ -90,7 +90,7 @@ module.exports.onStart = async ({ bot, message, args, event, usersData }) => {
           `📢 REPORT\nFrom: ${await usersData.getName(author)}\n\nMessage:\n${reportMessage}\n\n↩️ Reply to respond`
         );
 
-        global.client.onReply.set(msg.message_id, {
+        global.functions.onReply.set(msg.message_id, {
           commandName: this.config.name,
           type: "adminReply",
           message_ID: event.message_id,
