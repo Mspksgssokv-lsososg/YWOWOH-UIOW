@@ -3,7 +3,7 @@ module.exports = {
     name: "start",
     aliases: [],
     description: "Displays start menu",
-    version: "3.1.0",
+    version: "3.2.0",
     author: "SK-SIDDIK-KHAN",
     category: "general",
     role: 0,
@@ -23,7 +23,7 @@ module.exports = {
 ╭━━━〔 ✨ 𝗦𝗜𝗗𝗗𝗜𝗞 𝗕𝗢𝗧 ✨ 〕━━━╮
 ┃ 👋 Hello ${firstName} ${lastName}
 ┃
-┃ 🤖 Welcome to *SIDDIK BOT*
+┃ 🤖 Welcome To SIDDIK BOT
 ┃ 💡 Your smart assistant
 ┣━━━━━━━━━━━━━━━━━━━
 ┃ ⚙️ Prefix : ${prefix}
@@ -41,9 +41,6 @@ module.exports = {
         parse_mode: "Markdown",
         reply_markup: {
           inline_keyboard: [
-            [
-              { text: "📖 Commands", url: "https://t.me/busy1here" }
-            ],
             [
               { text: "🔗 Bot Owner", url: "https://t.me/busy1here" }
             ]
