@@ -2,47 +2,20 @@ const fs = require("fs");
 const path = require("path");
 
 const cacheDir = path.join(__dirname, "caches");
-const restartTxt = path.join(cacheDir, "restart.txt");
 
 module.exports = {
   config: {
     name: "restart",
     aliases: [],
-    version: "1.1.0",
+    version: "2.0.0",
     role: 3,
     author: "dipto",
-    description: "Restart the bot.",
+    description: "Soft restart (no shutdown).",
     usePrefix: true,
-    guide: "",
     category: "admin",
     cooldown: 5
   },
 
-  // ================= ON LOAD =================
-  onLoad: async function ({ bot }) {
-    try {
-      if (!fs.existsSync(cacheDir)) {
-        fs.mkdirSync(cacheDir, { recursive: true });
-      }
-
-      if (fs.existsSync(restartTxt)) {
-        const raw = fs.readFileSync(restartTxt, "utf-8").trim();
-
-        if (raw) {
-          const [chatId, oldTime] = raw.split(" ");
-          const elapsed = ((Date.now() - Number(oldTime)) / 1000).toFixed(2);
-
-          await bot.sendMessage(chatId, `✅ | Bot restarted\n⏰ | Time: ${elapsed}s`);
-        }
-
-        fs.unlinkSync(restartTxt);
-      }
-    } catch (err) {
-      console.error("RESTART LOAD ERROR:", err);
-    }
-  },
-
-  // ================= COMMAND =================
   onStart: async function ({ message, event }) {
     try {
       const chatId = event.chat.id;
@@ -51,13 +24,21 @@ module.exports = {
         fs.mkdirSync(cacheDir, { recursive: true });
       }
 
-      fs.writeFileSync(restartTxt, `${chatId} ${Date.now()}`);
+      const start = Date.now();
 
       await message.reply("🔄 | Restarting the bot...");
-      process.exit(0);
+
+      // ⏳ fake delay (1.5 sec)
+      setTimeout(async () => {
+        const elapsed = ((Date.now() - start) / 1000).toFixed(2);
+
+        await message.reply(
+          `✅ | Bot restarted\n⏰ | Time: ${elapsed}s`
+        );
+      }, 1500);
 
     } catch (err) {
-      console.error("RESTART CMD ERROR:", err);
+      console.error("RESTART ERROR:", err);
       return message.reply("❌ | Restart failed");
     }
   }
