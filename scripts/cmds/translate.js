@@ -14,10 +14,11 @@ async function translate(text, lang) {
 module.exports = {
   config: {
     name: "tns",
-    aliases: ["trans"],
+    aliases: ["trans","translate"],
     author: " SK-SIDDIK-KHAN",
     category: "utility",
     role: 0,
+    usePrefix: false,
     cooldown: 5
   },
 
@@ -43,7 +44,7 @@ module.exports = {
       }
 
       if (!text) {
-        return bot.sendMessage(chatId, "❌ | Provide text or reply", {
+        return bot.sendMessage(chatId, "❌ | tns bn your texttext / or any sms reply tns vi", {
           reply_to_message_id: msg.message_id
         });
       }
