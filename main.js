@@ -2,6 +2,9 @@ const TelegramBot = require("node-telegram-bot-api");
 const config = require("./config.json");
 const { loadScripts, messageUtils } = require("./utils");
 
+const fs = require("fs");
+const path = require("path");
+
 const utils = require("./utils");
 global.utils = utils;
 
@@ -24,6 +27,23 @@ global.cooldowns = new Map();
 
 loadScripts(bot);
 
+// ================= THREAD SAVE =================
+const threadFile = path.join(process.cwd(), "threads.json");
+if (!fs.existsSync(threadFile)) fs.writeFileSync(threadFile, "[]");
+
+function saveThread(chatId) {
+  try {
+    const data = JSON.parse(fs.readFileSync(threadFile));
+    if (!data.includes(chatId)) {
+      data.push(chatId);
+      fs.writeFileSync(threadFile, JSON.stringify(data, null, 2));
+    }
+  } catch {
+    fs.writeFileSync(threadFile, "[]");
+  }
+}
+// =================================================
+
 bot.on("message", async (msg) => {
   try {
     const text = msg.text?.trim() || "";
@@ -34,6 +54,9 @@ bot.on("message", async (msg) => {
 
     const chatId = msg.chat.id;
     const userId = msg.from.id;
+
+    // ✅ AUTO SAVE THREAD
+    saveThread(chatId);
 
     const isBotAdmin = (config.admins || []).includes(userId);
     const isOperator = (config.botOperator || []).includes(userId);
@@ -80,6 +103,7 @@ bot.on("message", async (msg) => {
       }
     }
 
+    // onChat + noPrefix
     for (let cmd of global.commands.values()) {
       try {
         if (cmd.onChat) {
@@ -89,11 +113,10 @@ bot.on("message", async (msg) => {
         if (cmd.noPrefix && !text.startsWith(prefix)) {
           await cmd.noPrefix({ bot, event: msg, msg, message, usersData, threadsData });
         }
-      } catch (e) {
-        console.log("❌ Event Error:", e);
-      }
+      } catch {}
     }
 
+    // onMessage
     for (let cmd of global.commands.values()) {
       try {
         if (cmd.onMessage) {
@@ -108,9 +131,7 @@ bot.on("message", async (msg) => {
             threadsData
           });
         }
-      } catch (e) {
-        console.log("❌ onMessage Error:", e);
-      }
+      } catch {}
     }
 
     let commandName, args;
@@ -133,6 +154,7 @@ bot.on("message", async (msg) => {
 
     if (command.config?.usePrefix === true && !text.startsWith(prefix)) return;
 
+    // ================= COOLDOWN =================
     const cooldownTime = (command.config?.cooldown || 0) * 1000;
 
     if (cooldownTime > 0) {
@@ -146,26 +168,24 @@ bot.on("message", async (msg) => {
 
       if (now < expirationTime) {
         const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
-        return message.reply(`⏳ | 𝐏𝐥𝐞𝐚𝐬𝐞 𝐰𝐚𝐢𝐭 ${timeLeft}s`);
+        return message.reply(`⏳ | Wait ${timeLeft}s`);
       }
 
       timestamps.set(userId, now + cooldownTime);
-
-      setTimeout(() => {
-        timestamps.delete(userId);
-      }, cooldownTime);
+      setTimeout(() => timestamps.delete(userId), cooldownTime);
     }
+    // ===========================================
 
     const role = command.config?.role ?? 0;
 
     if (role === 2 && !isBotAdmin)
-      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐛𝐨𝐭'𝐬 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
+      return message.reply("❌ | Bot admin only");
 
     if (role === 1 && !isBotAdmin && !isAdmin)
-      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐠𝐫𝐨𝐮𝐩 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
+      return message.reply("❌ | Group admin only");
 
     if (role === 3 && !isBotAdmin && !isOperator)
-      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
+      return message.reply("❌ | Operator only");
 
     try {
       if (command.onStart)
@@ -187,6 +207,7 @@ bot.on("message", async (msg) => {
   }
 });
 
+// ================= CALLBACK =================
 bot.on("callback_query", async (query) => {
   try {
     if (!query.message) return;
@@ -220,23 +241,12 @@ bot.on("callback_query", async (query) => {
   }
 });
 
+// ================= START LOG =================
 console.log(`
-DEFINITELY BY SK SIDDIK ━━━━━━━━━━♡
- 
-███████╗██╗██████╗ ██████╗ ██╗██╗  ██╗    ██████╗  ██████╗ ████████╗
-██╔════╝██║██╔══██╗██╔══██╗██║██║ ██╔╝    ██╔══██╗██╔═══██╗╚══██╔══╝
-███████╗██║██║  ██║██║  ██║██║█████╔╝     ██████╔╝██║   ██║   ██║   
-╚════██║██║██║  ██║██║  ██║██║██╔═██╗     ██╔══██╗██║   ██║   ██║   
-███████║██║██████╔╝██████╔╝██║██║  ██╗    ██████╔╝╚██████╔╝   ██║   
-╚══════╝╚═╝╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═╝    ╚═════╝  ╚═════╝    ╚═╝   
-                                                                    
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┣➤🤖 SIDDIK BOT SYSTEM READY
-┣━━━━━━━━━━━━━━━━━━━
-┣➤Name   : ${config.botName}
-┣━━━━━━━━━━━━━━━━━━━
-┣➤Prefix : ${config.prefix}
-┣━━━━━━━━━━━━━━━━━━━
-┣➤Owner  : ${config.owner}
-┗━━━━━━━━━━━━━━━━𝗘𝗡𝗝𝗢𝗬━━━━━━━━━━━━━┛
+━━━━━━━━━━━ SIDDIK BOT ━━━━━━━━━━━
+🤖 Bot Running Successfully
+📛 Name   : ${config.botName}
+🔑 Prefix : ${config.prefix}
+👑 Owner  : ${config.owner}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `);
