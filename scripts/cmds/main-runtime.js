@@ -2,7 +2,7 @@ const startTime = Date.now();
 
 module.exports = {
   config: {
-    name: "runtimes",
+    name: "runtme",
     aliases: ["runtime"],
     version: "2.0.0",
     author: "SK-SIDDIK-KHAN",
@@ -24,8 +24,8 @@ module.exports = {
     const days = Math.floor(hours / 24);
 
     const text = `
-╭━━━〔 ⚙️ 𝗨𝗣𝗧𝗜𝗠𝗘 〕━━━╮
-┃ ⏳ Active Time
+╭━━━━━━━━━━━━━━━━━━╮
+┃ ⏳ Active Time Moods
 ┣━━━━━━━━━━━━━━━━━━
 ┃ 📅 ${days} Day(s)
 ┃ ⏰ ${hours % 24} Hour(s)
@@ -43,7 +43,7 @@ module.exports = {
           inline_keyboard: [
             [
               {
-                text: "👑 Bot Owner",
+                text: "Bot Owner",
                 url: "https://t.me/busy1here"
               }
             ]
