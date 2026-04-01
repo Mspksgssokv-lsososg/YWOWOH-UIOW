@@ -6,7 +6,7 @@ module.exports = {
   config: {
     name: "broadcast",
     aliases: ["noti"],
-    author: " SK-SIDDIK-KHAN",
+    author: "SK-SIDDIK-KHAN",
     category: "admin",
     role: 2,
     usePrefix: false,
@@ -25,13 +25,10 @@ module.exports = {
       const filePath = path.join(process.cwd(), "threads.json");
 
       if (!fs.existsSync(filePath)) {
-        return bot.sendMessage(msg.chat.id, "❌ | threads.json not found", {
-          reply_to_message_id: msg.message_id
-        });
+        fs.writeFileSync(filePath, "[]");
       }
 
-      const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
-      const threads = data || [];
+      const threads = JSON.parse(fs.readFileSync(filePath, "utf8"));
 
       if (!threads.length) {
         return bot.sendMessage(msg.chat.id, "❌ | No threads found", {
@@ -46,11 +43,10 @@ module.exports = {
       let success = 0;
       let failed = 0;
 
-      for (const t of threads) {
+      for (const id of threads) {
         try {
-          const chatId = t.chatId || t;
           await bot.sendMessage(
-            chatId,
+            id,
             `📢 <b>BROADCAST</b>\n\n${text}\n\n⏰ ${time}\n👤 ${senderName} (@${username})`,
             { parse_mode: "HTML" }
           );
@@ -62,15 +58,13 @@ module.exports = {
 
       return bot.sendMessage(
         msg.chat.id,
-        `✅ | Done\n✔️ Success: ${success}\n❌ Failed: ${failed}`,
+        `✅ | Done\n✔️ ${success}\n❌ ${failed}`,
         { reply_to_message_id: msg.message_id }
       );
 
     } catch (err) {
       console.error(err);
-      return bot.sendMessage(msg.chat.id, "❌ | Broadcast failed", {
-        reply_to_message_id: msg.message_id
-      });
+      return bot.sendMessage(msg.chat.id, "❌ | Broadcast failed");
     }
   }
 };
