@@ -13,46 +13,123 @@ function saveConfig(data) {
 
 module.exports = {
   config: {
-    name: "adminonly",
-    author: "SK-SIDDIK-KHAN",
-    aliases: ["onlyadmin", "adonly"],
+    name: "whitelist",
+    aliases: ["wl"],
     role: 2,
-    usePrefix: true,
     category: "admin",
-    description: "Turn on/off admin only mode"
+    description: "Whitelist system"
   },
 
-  onStart: async ({ bot, msg, args }) => {
-    const chatId = msg.chat.id;
+  onStart: async ({ message, args, event, usersData }) => {
+    let data = getConfig();
 
-    const data = getConfig();
-
-    if (!data.adminOnly) {
-      data.adminOnly = {
-        enable: false
+    // ===== INIT =====
+    if (!data.white_list_ID) {
+      data.white_list_ID = {
+        enable: false,
+        IDS: []
       };
     }
 
     const action = args[0];
+    let uids = [];
 
+    // ===== GET USER ID =====
+    if (Object.keys(event.entities || {}).length > 0) {
+      uids = Object.keys(event.entities);
+    } else if (args[1]) {
+      uids = args.slice(1).filter(id => !isNaN(id));
+    }
+
+    // ===== ADD =====
+    if (action === "add" || action === "-a") {
+      if (uids.length === 0)
+        return message.reply("⚠️ Provide user ID");
+
+      let added = [];
+      let exists = [];
+
+      for (let uid of uids) {
+        if (data.white_list_ID.IDS.includes(uid)) {
+          exists.push(uid);
+        } else {
+          data.white_list_ID.IDS.push(uid);
+          added.push(uid);
+        }
+      }
+
+      saveConfig(data);
+      global.config = data;
+
+      return message.reply(
+        `✅ Added:\n${added.join("\n") || "None"}\n\n⚠️ Already:\n${exists.join("\n") || "None"}`
+      );
+    }
+
+    // ===== REMOVE =====
+    if (action === "remove" || action === "-r") {
+      if (uids.length === 0)
+        return message.reply("⚠️ Provide user ID");
+
+      let removed = [];
+      let notFound = [];
+
+      for (let uid of uids) {
+        if (data.white_list_ID.IDS.includes(uid)) {
+          data.white_list_ID.IDS =
+            data.white_list_ID.IDS.filter(id => id !== uid);
+          removed.push(uid);
+        } else {
+          notFound.push(uid);
+        }
+      }
+
+      saveConfig(data);
+      global.config = data;
+
+      return message.reply(
+        `❌ Removed:\n${removed.join("\n") || "None"}\n\n⚠️ Not Found:\n${notFound.join("\n") || "None"}`
+      );
+    }
+
+    // ===== LIST =====
+    if (action === "list" || action === "-l") {
+      if (data.white_list_ID.IDS.length === 0)
+        return message.reply("📭 Empty whitelist");
+
+      return message.reply(
+        "👑 Whitelist:\n" + data.white_list_ID.IDS.join("\n")
+      );
+    }
+
+    // ===== ON =====
     if (action === "on") {
-      data.adminOnly.enable = true;
-      saveConfig(data);
+      data.white_list_ID.enable = true;
 
-      return bot.sendMessage(chatId, "✅ Turned on the mode only admin can use bot");
+      saveConfig(data);
+      global.config = data;
+
+      return message.reply("✅ Whitelist ON");
     }
 
+    // ===== OFF =====
     if (action === "off") {
-      data.adminOnly.enable = false;
-      saveConfig(data);
+      data.white_list_ID.enable = false;
 
-      return bot.sendMessage(chatId, "❌ Turned off the mode only admin can use bot");
+      saveConfig(data);
+      global.config = data;
+
+      return message.reply("❌ Whitelist OFF");
     }
 
-    return bot.sendMessage(chatId,
+    // ===== USAGE =====
+    return message.reply(
 `Usage:
-/adminonly on
-/adminonly off`
+/whitelist add <id>
+/whitelist remove <id>
+/whitelist list
+/whitelist on
+/whitelist off`
     );
   }
 };
