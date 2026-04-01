@@ -1,66 +1,72 @@
-module.exports.config = {
-  name: "bc",
-  aliases: ["broadcast"],
-  description: "Send a broadcast message to all users and groups",
-  version: "1.0.2",
-  role: 2,
-  usePrefix: true,
-  category: "admin",
-  usages: [
-    "/bc <message>",
-    "Reply to a message with /bc to broadcast it"
-  ]
-};
+module.exports = {
+  config: {
+    name: "bc",
+    aliases: ["broadcast"],
+    description: "Send a broadcast message to all users and groups",
+    version: "1.0.2",
+    author: "SK-SIDDIK-KHAN",
+    category: "admin",
+    role: 2,
+    usePrefix: true,
+    cooldown: 5
+  },
 
-module.exports.start = async ({ api, event, args }) => {
-  const threadID = event.threadID;
+  run: async ({ bot, msg, args, message }) => {
+    const chatId = msg.chat.id;
 
-  const text =
-    args.join(" ") ||
-    (event.messageReply ? event.messageReply.body : "");
+    const fs = require("fs");
+    const path = require("path");
 
-  if (!text)
-    return api.sendMessage("❌ Please provide a message to broadcast.", threadID);
+    const threadFile = path.join(process.cwd(), "threads.json");
 
-  let userGrp = {};
-  try {
-    userGrp = await global.data.get("userGrp.json") || {};
-  } catch {
-    userGrp = {};
-  }
-
-  const users = userGrp.user || {};
-  const groups = userGrp.grp || {};
-
-  const targetIds = [
-    ...Object.keys(users).filter(id => users[id]),
-    ...Object.keys(groups).filter(id => groups[id])
-  ];
-
-  if (!targetIds.length)
-    return api.sendMessage("⚠️ No users or groups found to broadcast.", threadID);
-
-  await api.sendMessage("📤 Broadcasting message...", threadID);
-
-  let count = 0;
-
-  for (const id of targetIds) {
-    try {
-      if (String(id) === String(threadID)) continue;
-
-      await api.sendMessage(
-        `📢 Broadcast Message:\n\n${text}`,
-        id
-      );
-
-      count++;
-    } catch (e) {
-      console.log(`Failed to send to ${id}:`, e.message);
+    // ✅ AUTO CREATE FILE
+    if (!fs.existsSync(threadFile)) {
+      fs.writeFileSync(threadFile, "[]");
     }
-  }
 
-  return api.sendMessage(
-    `✅ Broadcast sent to ${count} users/groups.`,
-    threadID
-  );
+    // ✅ LOAD THREADS
+    let threadIDs = [];
+    try {
+      threadIDs = JSON.parse(fs.readFileSync(threadFile));
+    } catch {
+      threadIDs = [];
+      fs.writeFileSync(threadFile, "[]");
+    }
+
+    // ✅ AUTO SAVE CURRENT CHAT
+    if (!threadIDs.includes(chatId)) {
+      threadIDs.push(chatId);
+      fs.writeFileSync(threadFile, JSON.stringify(threadIDs));
+    }
+
+    const text =
+      args.join(" ") ||
+      (msg.reply_to_message?.text || "");
+
+    if (!text)
+      return message.reply("❌ | Please provide a message");
+
+    if (!threadIDs.length)
+      return message.reply("❌ | No users/groups found");
+
+    await message.reply("📤 | Broadcasting...");
+
+    let success = 0;
+    let fail = 0;
+
+    for (const id of threadIDs) {
+      try {
+        if (String(id) === String(chatId)) continue;
+
+        await bot.sendMessage(id, `📢 Broadcast\n\n${text}`);
+        success++;
+      } catch {
+        fail++;
+      }
+    }
+
+    return message.reply(
+      `✅ | Done\n👤 Success: ${success}\n❌ Fail: ${fail}`
+    );
+  }
 };
