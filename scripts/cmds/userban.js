@@ -22,7 +22,7 @@ function saveBanned(data) {
 module.exports = {
   config: {
     name: "user",
-    author: "SK-SIDDIK-KHAN',
+    author: "SK-SIDDIK-KHAN",
     role: 2,
     category: "admin",
     description: "User ban system"
