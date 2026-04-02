@@ -1,24 +1,22 @@
 const { admins } = global.config;
 
 const messages = {
-  added: (group, id, by, time, link) => 
+  added: (group, id, by, time) => 
 `─────────────────
 🤖 BOT ADDED
 ─────────────────
 👥 Group: ${group}
 🆔 ${id}
-🔗 Link: ${link}
 ➕ Added by: ${by}
 ⏰ ${time}
 ─────────────────`,
 
-  removed: (group, id, by, time, link) => 
+  removed: (group, id, by, time) => 
 `─────────────────
 ❌ BOT REMOVED
 ─────────────────
 👥 Group: ${group}
 🆔 ${id}
-🔗 Link: ${link}
 ➖ Removed by: ${by}
 ⏰ ${time}
 ─────────────────`,
@@ -52,18 +50,8 @@ module.exports = {
         }
       };
 
-      const getGroupLink = async (chatId) => {
-        try {
-          const link = await bot.exportChatInviteLink(chatId);
-          return link;
-        } catch {
-          return "No Link (Bot not admin)";
-        }
-      };
-
       const actorName = await getUserName(event.from.id);
       const time = getTime();
-      const groupLink = await getGroupLink(event.chat.id);
 
       if (event.new_chat_members) {
         const isBotJoined = event.new_chat_members.some(
@@ -75,8 +63,7 @@ module.exports = {
             event.chat.title || "Unknown",
             event.chat.id,
             actorName,
-            time,
-            groupLink
+            time
           );
 
           for (const adminID of admins) {
@@ -94,8 +81,7 @@ module.exports = {
             event.chat.title || "Unknown",
             event.chat.id,
             actorName,
-            time,
-            groupLink
+            time
           );
 
           for (const adminID of admins) {
