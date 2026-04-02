@@ -1,42 +1,45 @@
 module.exports = {
-  name: "logsbot",
-  author: "SK-SIDDIK-KHAN",
-  event: "message",
+  config: {
+    name: "botJoin",
+    author: "SK-SIDDIK-KHAN",
+    category: "events"
+  },
 
-  run: async ({ bot, event }) => {
+  onChat: async ({ bot, event }) => {
     try {
       const { admins } = global.config;
 
-      // ❌ no new member
-      if (!event.new_chat_members) return;
+      if (!event.new_chat_members && !event.left_chat_member) return;
 
       const me = await bot.getMe();
 
-      // ================= BOT JOIN =================
-      const isBotAdded = event.new_chat_members.some(
-        user => user.id === me.id
-      );
+      // ✅ BOT ADDED
+      if (event.new_chat_members) {
+        const isBotAdded = event.new_chat_members.some(
+          user => user.id === me.id
+        );
 
-      if (isBotAdded) {
-        const user = event.from;
-        const chat = event.chat;
+        if (isBotAdded) {
+          const user = event.from;
+          const chat = event.chat;
 
-        const msg =
+          const msg =
 `📢 BOT JOIN LOG
 
 ✅ Bot added to group
-👤 Added by: ${user.first_name || "Unknown"}
-🆔 User ID: ${user.id}
+👤 Added by: ${user.first_name}
+🆔 ${user.id}
 
-👥 Group: ${chat.title || "Unknown"}
-🆔 Chat ID: ${chat.id}`;
+👥 ${chat.title}
+🆔 ${chat.id}`;
 
-        for (const adminID of admins) {
-          await bot.sendMessage(adminID, msg).catch(() => {});
+          for (const adminID of admins) {
+            await bot.sendMessage(adminID, msg).catch(() => {});
+          }
         }
       }
 
-      // ================= BOT LEAVE =================
+      // ❌ BOT REMOVED
       if (event.left_chat_member) {
         if (event.left_chat_member.id === me.id) {
           const user = event.from;
@@ -46,11 +49,11 @@ module.exports = {
 `📢 BOT LEAVE LOG
 
 ❌ Bot removed from group
-👤 Removed by: ${user.first_name || "Unknown"}
-🆔 User ID: ${user.id}
+👤 Removed by: ${user.first_name}
+🆔 ${user.id}
 
-👥 Group: ${chat.title || "Unknown"}
-🆔 Chat ID: ${chat.id}`;
+👥 ${chat.title}
+🆔 ${chat.id}`;
 
           for (const adminID of admins) {
             await bot.sendMessage(adminID, msg).catch(() => {});
