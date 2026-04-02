@@ -4,6 +4,7 @@ module.exports = {
     version: "2.0",
     author: "SK-SIDDIK-KHAN",
     role: 0,
+    usePrefix: true,
     category: "media",
     guide: "/gojol"
   },
@@ -15,8 +16,7 @@ module.exports = {
       const chatId = event.chat?.id;
       if (!chatId) return;
 
-      // 🔥 loading msg
-      const loading = await bot.sendMessage(chatId, "⏳ Loading Islamic Gojol...");
+      const loading = await bot.sendMessage(chatId, "Loading Islamic Gojol... Please Wait ⏰");
 
       const links = [
         "https://drive.google.com/uc?id=1xjyq3BrlW3bGrp8y7eedQSuddCbdvLMN",
@@ -30,7 +30,6 @@ module.exports = {
 
       const audioURL = links[Math.floor(Math.random() * links.length)];
 
-      // 🔥 download stream
       const res = await axios({
         url: audioURL,
         method: "GET",
@@ -40,12 +39,10 @@ module.exports = {
         }
       });
 
-      // 🔥 send audio
       await bot.sendAudio(chatId, res.data, {
-        caption: "🎧 Islamic Gojol"
+        caption: "[ ɪꜱʟᴀᴍɪᴄ-ɢᴏᴊᴏʟ ]"
       });
 
-      // 🔥 delete loading msg
       bot.deleteMessage(chatId, loading.message_id).catch(() => {});
 
     } catch (err) {

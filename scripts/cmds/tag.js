@@ -1,71 +1,77 @@
-module.exports.config = {
-  name: "tag",
-  aliases: ["mention"],
-  version: "2.1.0",
-  role: 0,
-  author: "SK-SIDDIK-KHAN",
-  description: "Advanced tag system",
-  usePrefix: false,
-  guide: "{p}tag | reply\n{p}tag all",
-  category: "Utility",
-  countDown: 5,
-};
+module.exports = {
+  config: {
+    name: "tag",
+    version: "3.0",
+    author: "SK-SIDDIK-KHAN",
+    role: 0,
+    category: "tools",
+    guide: "/tag | /tag all | /tag admin"
+  },
 
-module.exports.run = async ({ message, event, bot, args }) => {
-  try {
-    const chatId = event.chat.id;
+  onStart: async ({ bot, event, args }) => {
+    try {
+      const chatId = event.chat?.id;
+      if (!chatId) return;
 
-    if (event.reply_to_message && args.length === 0) {
-      const user = event.reply_to_message.from;
-      const name = user.username || user.first_name || "User";
+      // 🔥 1. TAG ALL
+      if (args[0] === "all") {
+        const members = await bot.getChatAdministrators(chatId); // fallback (Telegram limitation)
 
-      return bot.sendMessage(chatId, `📢 @${name}`, {
-        entities: [
-          {
-            type: "text_mention",
-            offset: 2,
-            length: name.length + 1,
-            user: { id: user.id },
-          },
-        ],
-      });
-    }
+        let text = "👥 Group Mention:\n\n";
 
-    const admins = await bot.getChatAdministrators(chatId);
-    const isAdmin = admins.some(a => a.user.id === event.from.id);
-
-    if (args[0] === "all") {
-      if (!isAdmin) {
-        return message.reply("⚠️ | Only admin can use tag all!");
-      }
-
-      let text = "📢 Tagging admins:\n";
-      let entities = [];
-      let offset = text.length;
-
-      for (let member of admins) {
-        const name = member.user.first_name;
-        text += `@${name} `;
-
-        entities.push({
-          type: "text_mention",
-          offset: offset,
-          length: name.length + 1,
-          user: { id: member.user.id },
+        members.forEach(user => {
+          const id = user.user.id;
+          const name = user.user.first_name;
+          text += `[${name}](tg://user?id=${id})\n`;
         });
 
-        offset += name.length + 2;
+        return bot.sendMessage(chatId, text, {
+          parse_mode: "Markdown"
+        });
       }
 
-      return bot.sendMessage(chatId, text, { entities });
+      // 🔥 2. TAG ADMIN
+      if (args[0] === "admin") {
+        const admins = await bot.getChatAdministrators(chatId);
+
+        let text = "👑 Admin List:\n\n";
+
+        admins.forEach(user => {
+          const id = user.user.id;
+          const name = user.user.first_name;
+          text += `[${name}](tg://user?id=${id})\n`;
+        });
+
+        return bot.sendMessage(chatId, text, {
+          parse_mode: "Markdown"
+        });
+      }
+
+      // 🔥 3. NORMAL TAG
+      let userId, name;
+
+      if (event.reply_to_message) {
+        userId = event.reply_to_message.from.id;
+        name = event.reply_to_message.from.first_name;
+      } else {
+        userId = event.from.id;
+        name = event.from.first_name;
+      }
+
+      const mention = `[${name}](tg://user?id=${userId})`;
+
+      await bot.sendMessage(chatId, mention, {
+        parse_mode: "Markdown",
+        reply_to_message_id: event.message_id
+      });
+
+    } catch (err) {
+      console.log("❌ tag error:", err.message);
+
+      bot.sendMessage(
+        event.chat?.id,
+        "❌ Tag failed!"
+      );
     }
-
-    return message.reply(
-      "Usage:\n- Reply + tag\n- /tag all"
-    );
-
-  } catch (err) {
-    console.error(err);
-    message.reply("❌ Error: " + err.message);
   }
 };
