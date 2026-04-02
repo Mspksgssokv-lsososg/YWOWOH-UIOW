@@ -2,7 +2,7 @@ module.exports = {
   config: {
     name: "coupledp",
     aliases: [],
-    version: "1.0",
+    version: "2.0",
     author: "SK-SIDDIK-KHAN",
     role: 0,
     category: "fun",
@@ -13,7 +13,9 @@ module.exports = {
     const axios = require("axios");
 
     try {
-      const chatId = event.chat.id;
+
+      const chatId = event.chat?.id || event.from?.id;
+      if (!chatId) return;
 
       const links = [
         "https://i.imgur.com/g7woYNY.jpg",
@@ -49,15 +51,27 @@ module.exports = {
       const res = await axios({
         url: imgURL,
         method: "GET",
-        responseType: "stream"
+        responseType: "stream",
+        timeout: 10000,
+        headers: {
+          "User-Agent": "Mozilla/5.0"
+        }
       });
+
+      if (!res || !res.data) throw new Error("Invalid image");
 
       await bot.sendPhoto(chatId, res.data, {
         caption: "[ 𝐌𝐀𝐃𝐄 𝐁𝐘 𝐒𝐊 𝐒𝐈𝐃𝐃𝐈𝐊 ]"
       });
 
-    } catch (e) {
-      bot.sendMessage(event.chat.id, "❌ Error");
+    } catch (err) {
+
+      console.log("❌ coupledp error:", err.message);
+
+      const chatId = event.chat?.id || event.from?.id;
+      if (chatId) {
+        bot.sendMessage(chatId, "❌ Image load failed, try again!");
+      }
     }
   }
 };
