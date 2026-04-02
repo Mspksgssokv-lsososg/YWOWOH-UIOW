@@ -6,7 +6,7 @@ const path = require("path");
 module.exports = {
   config: {
     name: "blur",
-    version: "3.0",
+    version: "3.1",
     author: "SK-SIDDIK-KHAN",
     role: 0,
     category: "image",
@@ -19,9 +19,12 @@ module.exports = {
 
     try {
       let userId = event.from.id;
+      let userName = event.from.first_name || "User";
 
+      // 👉 reply হলে ওই user
       if (event.reply_to_message) {
         userId = event.reply_to_message.from.id;
+        userName = event.reply_to_message.from.first_name || "User";
       }
 
       const photos = await bot.getUserProfilePhotos(userId, { limit: 1 });
@@ -37,9 +40,7 @@ module.exports = {
         return bot.sendMessage(chatId, "❌ File path not found!");
       }
 
-      // ✅ NO TOKEN NEEDED
       const fileUrl = `https://api.telegram.org/file/bot${bot.token}/${file.file_path}`;
-
       const filePath = path.join(__dirname, "cache_blur.jpg");
 
       const res = await axios.get(fileUrl, {
@@ -48,12 +49,16 @@ module.exports = {
 
       fs.writeFileSync(filePath, res.data);
 
+      // 🔥 Blur কম করা হয়েছে (5 → 2)
       const image = await Jimp.read(filePath);
-      image.blur(5);
+      image.blur(2);
       await image.writeAsync(filePath);
 
+      // 👉 mention system
       await bot.sendPhoto(chatId, filePath, {
-        caption: "🌀 Blurred Profile Pic"
+        caption: `🌀 Blurred profile of ${userName}`,
+        parse_mode: "HTML",
+        reply_to_message_id: event.message_id
       });
 
       fs.unlinkSync(filePath);
