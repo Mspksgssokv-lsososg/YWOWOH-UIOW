@@ -18,7 +18,7 @@ module.exports = {
       if (!chatId) return;
 
       if (!args.length) {
-        return bot.sendMessage(chatId, "❌ Please enter a text");
+        return bot.sendMessage(chatId, "❌ 𝐏𝐥𝐞𝐚𝐬𝐞 𝐈𝐧𝐭𝐞𝐫 𝐀 𝐌𝐚𝐬𝐬𝐚𝐠𝐞");
       }
 
       let text = args.join(" ");
