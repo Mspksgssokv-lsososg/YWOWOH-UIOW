@@ -1,12 +1,13 @@
 module.exports = {
   config: {
-    name: "linkfb",
-    aliases: ["link"],
+    name: "tglink",
+    aliases: ["link","linktg"],
     version: "5.0",
     author: "SK-SIDDIK-KHAN",
     role: 0,
+    usePrefix: false,
     category: "utility",
-    guide: "/linkfb (reply / mention / id)"
+    guide: "/linkth (reply / mention / id)"
   },
 
   onStart: async ({ bot, event, args }) => {
@@ -17,13 +18,11 @@ module.exports = {
       let userId = null;
       let username = null;
 
-      // 🔥 1. reply
       if (event.reply_to_message) {
         userId = event.reply_to_message.from?.id;
         username = event.reply_to_message.from?.username;
       }
 
-      // 🔥 2. mention
       else if (event.entities) {
         for (const ent of event.entities) {
 
@@ -41,23 +40,19 @@ module.exports = {
         }
       }
 
-      // 🔥 3. args
       if (!userId && args[0]) {
         userId = args[0];
       }
 
-      // 🔥 4. default (MAIN FIX 🔥)
       if (!userId) {
         userId = event.from?.id;
         username = event.from?.username;
       }
 
-      // 🔥 FINAL SAFETY
       if (!userId && !username) {
-        return bot.sendMessage(chatId, "❌ User not found!");
+        return bot.sendMessage(chatId, "❌ User not found");
       }
 
-      // 🔥 link generate
       let link;
 
       if (username) {
@@ -76,7 +71,7 @@ module.exports = {
 
       bot.sendMessage(
         event.chat?.id,
-        "❌ Failed to get profile link!"
+        "❌ Failed to get profile link"
       );
     }
   }
