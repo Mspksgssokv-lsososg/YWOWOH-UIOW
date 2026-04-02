@@ -2,7 +2,7 @@ module.exports = {
   config: {
     name: "linkfb",
     aliases: ["link"],
-    version: "4.0",
+    version: "5.0",
     author: "SK-SIDDIK-KHAN",
     role: 0,
     category: "utility",
@@ -19,15 +19,14 @@ module.exports = {
 
       // 🔥 1. reply
       if (event.reply_to_message) {
-        userId = event.reply_to_message.from.id;
-        username = event.reply_to_message.from.username;
+        userId = event.reply_to_message.from?.id;
+        username = event.reply_to_message.from?.username;
       }
 
-      // 🔥 2. mention detect (FIXED)
+      // 🔥 2. mention
       else if (event.entities) {
         for (const ent of event.entities) {
 
-          // 👉 @username mention
           if (ent.type === "mention") {
             username = event.text.substring(
               ent.offset,
@@ -35,26 +34,25 @@ module.exports = {
             ).replace("@", "");
           }
 
-          // 👉 clickable mention (MAIN FIX 🔥)
           if (ent.type === "text_mention") {
-            userId = ent.user.id;
-            username = ent.user.username;
+            userId = ent.user?.id;
+            username = ent.user?.username;
           }
         }
       }
 
       // 🔥 3. args
-      else if (args[0]) {
+      if (!userId && args[0]) {
         userId = args[0];
       }
 
-      // 🔥 4. default
-      else {
-        userId = event.from.id;
-        username = event.from.username;
+      // 🔥 4. default (MAIN FIX 🔥)
+      if (!userId) {
+        userId = event.from?.id;
+        username = event.from?.username;
       }
 
-      // ❌ যদি কিছুই না পাওয়া যায়
+      // 🔥 FINAL SAFETY
       if (!userId && !username) {
         return bot.sendMessage(chatId, "❌ User not found!");
       }
