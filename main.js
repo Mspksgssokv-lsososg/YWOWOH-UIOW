@@ -276,26 +276,15 @@ bot.on("callback_query", async (query) => {
     console.log("❌ CALLBACK ERROR:", err);
   }
 });
- 
-const app = express();
-const PORT = process.env.PORT || 3000;
- 
-app.get("/", (req, res) => {
-  res.send("🤖 Siddik Bot is running 24/7 ✅");
-});
- 
-app.listen(PORT, () => {
-  console.log(`🌍 Web server running at http://localhost:${PORT}`);
-});
- 
+
 process.on("unhandledRejection", (reason) => {
   console.error("💥 UNHANDLED REJECTION:", reason);
 });
- 
+
 process.on("uncaughtException", (err) => {
   console.error("🔥 UNCAUGHT EXCEPTION:", err);
 });
- 
+
 console.log(`
 DEFINITELY BY SK SIDDIK ━━━━━━━━━━♡
  
