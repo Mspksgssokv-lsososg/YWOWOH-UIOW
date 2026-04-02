@@ -1,11 +1,12 @@
 const fs = require("fs-extra");
 const axios = require("axios");
 const Jimp = require("jimp");
+const path = require("path");
 
 module.exports = {
   config: {
     name: "blur",
-    version: "2.0",
+    version: "2.1",
     author: "SK-SIDDIK-KHAN",
     role: 0,
     category: "image",
@@ -13,57 +14,67 @@ module.exports = {
   },
 
   onStart: async ({ bot, event }) => {
-    try {
-      const chatId = event.chat?.id;
-      if (!chatId) return;
+    const chatId = event.chat?.id;
+    if (!chatId) return;
 
+    try {
       // 🔥 user detect
-      let userId;
+      let userId = event.from.id;
 
       if (event.reply_to_message) {
         userId = event.reply_to_message.from.id;
-      } else {
-        userId = event.from.id;
       }
 
-      // 🔥 get profile pic
+      console.log("USER ID:", userId);
+
+      // 🔥 get profile photos
       const photos = await bot.getUserProfilePhotos(userId, { limit: 1 });
 
-      if (photos.total_count === 0) {
-        return bot.sendMessage(chatId, "❌ No profile photo found!");
+      console.log("PHOTOS:", photos.total_count);
+
+      if (!photos || photos.total_count === 0) {
+        return bot.sendMessage(chatId, "❌ User has no profile photo!");
       }
 
       const fileId = photos.photos[0][0].file_id;
 
-      // 🔥 get file link
+      // 🔥 get file info
       const file = await bot.getFile(fileId);
+
+      if (!file.file_path) {
+        return bot.sendMessage(chatId, "❌ File path not found!");
+      }
+
       const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
 
+      console.log("FILE URL:", fileUrl);
+
       // 🔥 download image
-      const path = __dirname + "/Siddik/blur.jpg";
-      const res = await axios.get(fileUrl, { responseType: "arraybuffer" });
-      fs.writeFileSync(path, res.data);
+      const filePath = path.join(__dirname, "cache_blur.jpg");
 
-      // 🔥 blur using Jimp
-      const image = await Jimp.read(path);
+      const res = await axios.get(fileUrl, {
+        responseType: "arraybuffer"
+      });
+
+      fs.writeFileSync(filePath, res.data);
+
+      // 🔥 blur image
+      const image = await Jimp.read(filePath);
       image.blur(5);
-      await image.writeAsync(path);
+      await image.writeAsync(filePath);
 
-      // 🔥 send blurred image
-      await bot.sendPhoto(chatId, path, {
+      // 🔥 send photo
+      await bot.sendPhoto(chatId, filePath, {
         caption: "🌀 Blurred Profile Pic"
       });
 
-      // 🔥 delete temp file
-      fs.unlinkSync(path);
+      // 🔥 cleanup
+      fs.unlinkSync(filePath);
 
     } catch (err) {
-      console.log("❌ blur error:", err.message);
+      console.error("❌ FULL ERROR:", err);
 
-      bot.sendMessage(
-        event.chat?.id,
-        "❌ Failed to blur image!"
-      );
+      bot.sendMessage(chatId, "❌ Error:\n" + err.message);
     }
   }
 };
