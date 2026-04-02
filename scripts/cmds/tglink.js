@@ -1,8 +1,8 @@
 module.exports = {
   config: {
-    name: "tglink",
+    name: "linkfb",
     aliases: ["link"],
-    version: "3.0",
+    version: "4.0",
     author: "SK-SIDDIK-KHAN",
     role: 0,
     category: "utility",
@@ -17,32 +17,46 @@ module.exports = {
       let userId = null;
       let username = null;
 
-      // 🔥 1. reply করলে
+      // 🔥 1. reply
       if (event.reply_to_message) {
         userId = event.reply_to_message.from.id;
         username = event.reply_to_message.from.username;
       }
 
-      // 🔥 2. mention করলে
+      // 🔥 2. mention detect (FIXED)
       else if (event.entities) {
-        const mention = event.entities.find(e => e.type === "mention");
-        if (mention) {
-          username = event.text.substring(
-            mention.offset,
-            mention.offset + mention.length
-          ).replace("@", "");
+        for (const ent of event.entities) {
+
+          // 👉 @username mention
+          if (ent.type === "mention") {
+            username = event.text.substring(
+              ent.offset,
+              ent.offset + ent.length
+            ).replace("@", "");
+          }
+
+          // 👉 clickable mention (MAIN FIX 🔥)
+          if (ent.type === "text_mention") {
+            userId = ent.user.id;
+            username = ent.user.username;
+          }
         }
       }
 
-      // 🔥 3. args দিলে (user id)
+      // 🔥 3. args
       else if (args[0]) {
         userId = args[0];
       }
 
-      // 🔥 4. default: নিজের
+      // 🔥 4. default
       else {
         userId = event.from.id;
         username = event.from.username;
+      }
+
+      // ❌ যদি কিছুই না পাওয়া যায়
+      if (!userId && !username) {
+        return bot.sendMessage(chatId, "❌ User not found!");
       }
 
       // 🔥 link generate
