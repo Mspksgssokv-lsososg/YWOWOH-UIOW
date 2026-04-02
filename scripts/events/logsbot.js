@@ -1,30 +1,28 @@
 module.exports = {
-  config: {
-    name: "logsbot",
-    version: "3.0.0",
-    author: "Siddik",
-    category: "events"
-  },
+  name: "logsbot",
+  author: "SK-SIDDIK-KHAN",
+  event: "message",
 
-  onStart: async ({ bot, event }) => {
+  run: async ({ bot, event }) => {
     try {
       const { admins } = global.config;
 
-      // 🔥 get bot info once
-      const botData = await bot.getMe();
+      // ❌ no new member
+      if (!event.new_chat_members) return;
 
-      // ================== BOT ADDED ==================
-      if (event.new_chat_members) {
-        const isBotAdded = event.new_chat_members.some(
-          user => user.id === botData.id
-        );
+      const me = await bot.getMe();
 
-        if (isBotAdded) {
-          const user = event.from;
-          const chat = event.chat;
+      // ================= BOT JOIN =================
+      const isBotAdded = event.new_chat_members.some(
+        user => user.id === me.id
+      );
 
-          const msg =
-`📢 BOT LOGS
+      if (isBotAdded) {
+        const user = event.from;
+        const chat = event.chat;
+
+        const msg =
+`📢 BOT JOIN LOG
 
 ✅ Bot added to group
 👤 Added by: ${user.first_name || "Unknown"}
@@ -33,20 +31,19 @@ module.exports = {
 👥 Group: ${chat.title || "Unknown"}
 🆔 Chat ID: ${chat.id}`;
 
-          for (const adminID of admins) {
-            await bot.sendMessage(adminID, msg).catch(() => {});
-          }
+        for (const adminID of admins) {
+          await bot.sendMessage(adminID, msg).catch(() => {});
         }
       }
 
-      // ================== BOT REMOVED ==================
+      // ================= BOT LEAVE =================
       if (event.left_chat_member) {
-        if (event.left_chat_member.id === botData.id) {
+        if (event.left_chat_member.id === me.id) {
           const user = event.from;
           const chat = event.chat;
 
           const msg =
-`📢 BOT LOGS
+`📢 BOT LEAVE LOG
 
 ❌ Bot removed from group
 👤 Removed by: ${user.first_name || "Unknown"}
@@ -62,7 +59,7 @@ module.exports = {
       }
 
     } catch (err) {
-      console.log("❌ logsbot error:", err.message);
+      console.log("❌ botJoin error:", err.message);
     }
   }
 };
