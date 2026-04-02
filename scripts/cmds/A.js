@@ -1,93 +1,116 @@
-const axios = require("axios");
-const Jimp = require("jimp");
+const { createCanvas, loadImage } = require("canvas");
 const fs = require("fs");
 const path = require("path");
+const axios = require("axios");
 
 module.exports = {
   config: {
-    name: "arrest",
+    name: "circle",
     version: "2.0",
     author: "SK-SIDDIK-KHAN",
     role: 0,
-    category: "fun",
-    guide: "/arrest (reply বা mention)"
+    category: "image",
+    guide: "/circle [1-50] (reply image)"
   },
 
-  onStart: async ({ bot, event }) => {
+  onStart: async ({ bot, event, args }) => {
     try {
       const chatId = event.chat?.id;
       if (!chatId) return;
 
-      // 🔥 user detect
-      let user1 = event.from.id;
-      let user2;
-
-      if (event.reply_to_message) {
-        user2 = event.reply_to_message.from.id;
-      } else if (event.entities) {
-        const mention = event.entities.find(e => e.type === "text_mention");
-        if (mention) user2 = mention.user.id;
+      // 🔥 reply check
+      if (!event.reply_to_message) {
+        return bot.sendMessage(chatId, "❌ Reply to an image!");
       }
 
-      if (!user2) {
-        return bot.sendMessage(chatId, "❌ Reply or mention someone!");
+      const msg = event.reply_to_message;
+
+      // 🔥 image detect
+      let fileId;
+      if (msg.photo) {
+        fileId = msg.photo[msg.photo.length - 1].file_id;
+      } else if (msg.sticker) {
+        fileId = msg.sticker.file_id;
+      } else {
+        return bot.sendMessage(chatId, "❌ Only photo/sticker supported!");
       }
 
-      // 🔥 generate image
-      const imagePath = await generateArrestImage(bot, user1, user2);
+      // 🔥 border number
+      const borderNumber = args[0] ? parseInt(args[0]) : 0;
+      if (isNaN(borderNumber) || borderNumber < 0 || borderNumber > 50) {
+        return bot.sendMessage(chatId, "❌ Border must be 0-50");
+      }
 
-      await bot.sendPhoto(chatId, imagePath, {
-        caption: "🚔 You are under arrest 😆"
+      // 🔥 get file url
+      const file = await bot.getFile(fileId);
+      const fileUrl = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
+
+      // 🔥 download
+      const res = await axios.get(fileUrl, { responseType: "arraybuffer" });
+      const image = await loadImage(Buffer.from(res.data));
+
+      // 🔥 canvas
+      const size = Math.min(image.width, image.height);
+      const canvas = createCanvas(size, size);
+      const ctx = canvas.getContext("2d");
+
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+
+      ctx.drawImage(
+        image,
+        (image.width - size) / 2,
+        (image.height - size) / 2,
+        size,
+        size,
+        0,
+        0,
+        size,
+        size
+      );
+
+      // 🔥 border
+      if (borderNumber > 0) {
+        addBorder(ctx, size, borderNumber);
+      }
+
+      // 🔥 save
+      const filePath = path.join(__dirname, "circle.png");
+      const out = fs.createWriteStream(filePath);
+      const stream = canvas.createPNGStream();
+
+      stream.pipe(out);
+
+      out.on("finish", async () => {
+        await bot.sendPhoto(chatId, filePath, {
+          caption: "⭕ Circle Image"
+        });
+        fs.unlinkSync(filePath);
       });
 
-      fs.unlinkSync(imagePath);
-
     } catch (err) {
-      console.error("❌ arrest error:", err);
+      console.error("❌ circle error:", err);
       bot.sendMessage(event.chat?.id, "❌ Failed!");
     }
   }
 };
 
-async function getProfilePic(bot, userId) {
-  const photos = await bot.getUserProfilePhotos(userId, { limit: 1 });
+// 🎨 border function
+function addBorder(ctx, size, borderNumber) {
+  const colors = [
+    "#FF0000","#00FF00","#0000FF","#FFFF00","#00FFFF","#FF00FF",
+    "#000000","#808000","#008000","#800080","#008080","#000080",
+    "#FF6347","#4682B4","#DAA520","#CD5C5C","#4B0082","#7FFF00"
+  ];
 
-  if (photos.total_count === 0) return null;
+  const color = colors[(borderNumber - 1) % colors.length];
 
-  const fileId = photos.photos[0][0].file_id;
-  const file = await bot.getFile(fileId);
-
-  const url = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
-
-  const res = await axios.get(url, { responseType: "arraybuffer" });
-  return await Jimp.read(Buffer.from(res.data));
-}
-
-async function generateArrestImage(bot, uid1, uid2) {
-  const [av1, av2] = await Promise.all([
-    getProfilePic(bot, uid1),
-    getProfilePic(bot, uid2)
-  ]);
-
-  if (!av1 || !av2) throw new Error("No DP found");
-
-  av1.circle().resize(120, 120);
-  av2.circle().resize(120, 120);
-
-  // 🔥 background image
-  const bgRes = await axios.get(
-    "https://i.imgur.com/8qz1XbG.png", // arrest template
-    { responseType: "arraybuffer" }
-  );
-
-  const bg = await Jimp.read(Buffer.from(bgRes.data));
-
-  bg.resize(500, 500)
-    .composite(av1, 320, 50)
-    .composite(av2, 80, 250);
-
-  const filePath = path.join(__dirname, `arrest_${Date.now()}.jpg`);
-  await bg.writeAsync(filePath);
-
-  return filePath;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2 - 5, 0, Math.PI * 2);
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = color;
+  ctx.stroke();
+  ctx.closePath();
 }
