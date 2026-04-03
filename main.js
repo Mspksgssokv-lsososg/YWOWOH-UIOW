@@ -1,60 +1,52 @@
 const TelegramBot = require("node-telegram-bot-api");
 const config = require("./config.json");
 const { loadScripts, messageUtils } = require("./utils");
-
+ 
 const fs = require("fs");
 const path = require("path");
-
+const express = require("express"); 
+ 
 const utils = require("./utils");
 global.utils = utils;
-
+ 
 const usersData = require("./database/users");
 const threadsData = require("./database/threads");
-
+ 
 const token = process.env.TELEGRAM_BOT_TOKEN || config.token;
 const bot = new TelegramBot(token, { polling: true });
-
-// ================= REACT UNSEND TRACK =================
-const botMessages = new Set();
-
-// সব bot message track
-const oldSendMessage = bot.sendMessage.bind(bot);
-bot.sendMessage = async function (chatId, text, options = {}) {
-  try {
-    const msg = await oldSendMessage(chatId, text, options);
-    if (msg?.message_id) {
-      botMessages.add(msg.message_id);
-      console.log("📩 Bot message:", msg.message_id);
-    }
-    return msg;
-  } catch (e) {
-    console.log("SEND ERROR:", e);
-  }
-};
-
-// ================= GLOBAL =================
+ 
 global.commands = new Map();
 global.events = new Map();
 global.config = config;
 global.adminOnly = false;
-
+ 
 global.functions = {
   reply: new Map(),
   onReply: new Map()
 };
-
+ 
 global.cooldowns = new Map();
-global.firstChatUsers = new Set();
-
+ 
 loadScripts(bot);
 
-// ================= FILE =================
+// ================= GOAT BOT STYLE SYSTEM =================
+global.GoatBot = {
+  commands: new Map(),
+  eventCommands: new Map(),
+  onReply: new Map(),
+  onReaction: new Map(),
+  onEvent: new Map()
+};
+
+global._firstChat = new Set();
+
 const threadFile = path.join(process.cwd(), "threads.json");
 const banFile = path.join(process.cwd(), "banned.json");
-
-if (!fs.existsSync(banFile)) fs.writeFileSync(banFile, "[]");
-if (!fs.existsSync(threadFile)) fs.writeFileSync(threadFile, "[]");
-
+ 
+if (!fs.existsSync(banFile)) {
+  fs.writeFileSync(banFile, "[]");
+}
+ 
 function getBanned() {
   try {
     return JSON.parse(fs.readFileSync(banFile));
@@ -62,166 +54,292 @@ function getBanned() {
     return [];
   }
 }
-
+ 
 function isBanned(userId) {
   return getBanned().includes(String(userId));
 }
-
+ 
+if (!fs.existsSync(threadFile)) {
+  fs.writeFileSync(threadFile, "[]");
+}
+ 
 function saveThread(chatId) {
   let data = [];
   try {
     data = JSON.parse(fs.readFileSync(threadFile));
-  } catch {}
-
+  } catch {
+    data = [];
+  }
+ 
   if (!data.includes(chatId)) {
     data.push(chatId);
     fs.writeFileSync(threadFile, JSON.stringify(data));
   }
 }
-
-// ================= MESSAGE =================
+ 
 bot.on("message", async (msg) => {
   try {
-    const text = msg.text?.trim() || "";
-    if (!text) return;
 
-    const prefix = config.prefix;
-    const message = messageUtils(bot, msg);
-
-    const chatId = msg.chat.id;
-    const userId = msg.from.id;
-    const isBotAdmin = (config.admins || []).includes(userId);
-
-    if (isBanned(userId)) {
-      return bot.sendMessage(chatId, "🚫 | You are banned");
-    }
-
-    if (global.adminOnly && !isBotAdmin) {
-      return bot.sendMessage(chatId, "🔒 | Admin only mode");
-    }
-
-    saveThread(chatId);
-
-    // FIRST CHAT
-    if (!global.firstChatUsers.has(userId)) {
-      global.firstChatUsers.add(userId);
-      for (let cmd of global.commands.values()) {
-        try {
-          if (cmd.onFirstChat) {
-            await cmd.onFirstChat({ bot, event: msg, msg, message, usersData, threadsData });
-          }
-        } catch (e) {
-          console.log("FIRST CHAT ERROR:", e);
-        }
+    // GoatBot onEvent
+    for (const [, data] of global.GoatBot.onEvent) {
+      const command = global.commands.get(data.commandName);
+      if (command?.onEvent) {
+        await command.onEvent({ bot, event: msg, data, usersData, threadsData });
       }
     }
 
-    let commandName, args;
+    const text = msg.text?.trim() || "";
+    if (!text) return;
+ 
+    const prefix = config.prefix;
+    const message = messageUtils(bot, msg);
+ 
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
+    const isBotAdmin = (config.admins || []).includes(userId); 
+    
+    if (isBanned(userId)) {
+  return bot.sendMessage(
+    chatId,
+    "🚫 | 𝐘𝐨𝐮 𝐡𝐚𝐯𝐞 𝐛𝐞𝐞𝐧 𝐛𝐚𝐧𝐧𝐞𝐝 𝐟𝐫𝐨𝐦 𝐮𝐬𝐢𝐧𝐠 𝐭𝐡𝐞 𝐛𝐨𝐭"
+  );
+}
+if (global.adminOnly && !isBotAdmin) {
+  return bot.sendMessage(
+    chatId,
+    "🔒 | 𝐁𝐨𝐭 𝐢𝐬 𝐢𝐧 𝐚𝐝𝐦𝐢𝐧-𝐨𝐧𝐥𝐲 𝐦𝐨𝐝𝐞 "
+  );
+}
+ 
+    saveThread(chatId);
 
+    // GoatBot onFirstChat
+    if (!global._firstChat.has(chatId)) {
+      global._firstChat.add(chatId);
+      for (let cmd of global.commands.values()) {
+        if (cmd.onFirstChat) {
+          await cmd.onFirstChat({ bot, event: msg, usersData, threadsData });
+        }
+      }
+    }
+ 
+    const isOperator = (config.botOperator || []).includes(userId);
+ 
+    if (config.ignore_list_ID?.enable &&
+        config.ignore_list_ID.IDS.includes(userId)) return;
+ 
+    if (config.white_list_ID?.enable &&
+        !config.white_list_ID.IDS.includes(userId)) return;
+ 
+    if (config.white_list_group?.enable &&
+        !config.white_list_group.groups.includes(chatId)) return;
+ 
+    let isAdmin = false;
+    if (msg.chat.type !== "private") {
+      try {
+        const member = await bot.getChatMember(chatId, userId);
+        isAdmin = ["administrator", "creator"].includes(member.status);
+      } catch {}
+    }
+ 
+    const replyMsgId = msg.reply_to_message?.message_id;
+ 
+    if (replyMsgId) {
+
+      // OLD system
+      const data =
+        global.functions.reply.get(replyMsgId) ||
+        global.functions.onReply.get(replyMsgId);
+
+      if (data) {
+        const command = global.commands.get(data.commandName);
+        if (command?.onReply || command?.reply) {
+          return await (command.onReply || command.reply)({
+            bot,
+            event: msg,
+            msg,
+            message,
+            args: text.split(" "),
+            Reply: data,
+            usersData,
+            threadsData
+          });
+        }
+      }
+
+      // GoatBot onReply
+      const goatReply = global.GoatBot.onReply.get(replyMsgId);
+      if (goatReply) {
+        const command = global.commands.get(goatReply.commandName);
+        if (command?.onReply) {
+          goatReply.delete = () => global.GoatBot.onReply.delete(replyMsgId);
+          return await command.onReply({
+            bot,
+            event: msg,
+            msg,
+            args: text.split(" "),
+            Reply: goatReply,
+            usersData,
+            threadsData
+          });
+        }
+      }
+    }
+ 
+    for (let cmd of global.commands.values()) {
+      try {
+        if (cmd.onChat) {
+          await cmd.onChat({ bot, event: msg, msg, message, usersData, threadsData });
+        }
+ 
+        if (cmd.noPrefix && !text.startsWith(prefix)) {
+          await cmd.noPrefix({ bot, event: msg, msg, message, usersData, threadsData });
+        }
+      } catch (e) {
+        console.log("❌ Event Error:", e);
+      }
+    }
+
+    // GoatBot handlerEvent
+    for (const cmd of global.GoatBot.eventCommands.values()) {
+      try {
+        if (cmd.onStart) {
+          await cmd.onStart({ bot, event: msg, usersData, threadsData });
+        }
+      } catch (e) {
+        console.log("❌ EventCommand Error:", e);
+      }
+    }
+ 
+    for (let cmd of global.commands.values()) {
+      try {
+        if (cmd.onMessage) {
+          await cmd.onMessage({
+            bot,
+            chatId,
+            userId,
+            message: msg,
+            messageId: msg.message_id,
+            text,
+            usersData,
+            threadsData
+          });
+        }
+      } catch (e) {
+        console.log("❌ onMessage Error:", e);
+      }
+    }
+ 
+    let commandName, args;
+ 
     if (text.startsWith(prefix)) {
       args = text.slice(prefix.length).trim().split(/ +/);
       commandName = args.shift()?.toLowerCase();
     } else {
-      args = text.split(/ +/);
+      args = text.trim().split(/ +/);
       commandName = args.shift()?.toLowerCase();
     }
-
+ 
     const command =
       global.commands.get(commandName) ||
       [...global.commands.values()].find(cmd =>
         cmd.config?.aliases?.includes(commandName)
       );
-
+ 
     if (!command) return;
-
+ 
+    if (command.config?.usePrefix === true && !text.startsWith(prefix)) return;
+ 
+    const cooldownTime = (command.config?.cooldown || 0) * 1000;
+ 
+    if (cooldownTime > 0) {
+      if (!global.cooldowns.has(commandName)) {
+        global.cooldowns.set(commandName, new Map());
+      }
+ 
+      const now = Date.now();
+      const timestamps = global.cooldowns.get(commandName);
+      const expirationTime = timestamps.get(userId) || 0;
+ 
+      if (now < expirationTime) {
+        const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
+        return message.reply(`⏳ | 𝐏𝐥𝐞𝐚𝐬𝐞 𝐰𝐚𝐢𝐭 ${timeLeft}s`);
+      }
+ 
+      timestamps.set(userId, now + cooldownTime);
+ 
+      setTimeout(() => {
+        timestamps.delete(userId);
+      }, cooldownTime);
+    }
+ 
+    const role = command.config?.role ?? 0;
+ 
+    if (role === 2 && !isBotAdmin)
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐛𝐨𝐭'𝐬 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
+ 
+    if (role === 1 && !isBotAdmin && !isAdmin)
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐠𝐫𝐨𝐮𝐩 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
+ 
+    if (role === 3 && !isBotAdmin && !isOperator)
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
+ 
     try {
-      if (command.onStart) {
-        await command.onStart({
+      if (command.onStart)
+        await command.onStart({ bot, event: msg, msg, args, message, usersData, threadsData });
+ 
+      else if (command.run)
+        await command.run({ bot, event: msg, msg, args, message, usersData, threadsData });
+ 
+      else if (command.start)
+        await command.start({ bot, event: msg, msg, args, message, usersData, threadsData });
+ 
+    } catch (err) {
+      console.log(`❌ ${commandName}:`, err);
+      message.err(err);
+    }
+ 
+  } catch (err) {
+    console.log("❌ MAIN ERROR:", err);
+  }
+});
+ 
+bot.on("callback_query", async (query) => {
+  try {
+
+    // GoatBot onReaction
+    const reactData = global.GoatBot.onReaction.get(query.message.message_id);
+    if (reactData) {
+      const command = global.commands.get(reactData.commandName);
+      if (command?.onReaction) {
+        reactData.delete = () => global.GoatBot.onReaction.delete(query.message.message_id);
+        return await command.onReaction({
           bot,
-          event: msg,
-          msg,
-          args,
-          message,
+          event: query,
+          msg: query.message,
+          args: query.data?.split(" ") || [],
+          Reaction: reactData,
           usersData,
           threadsData
         });
       }
-    } catch (err) {
-      console.log("COMMAND ERROR:", err);
     }
 
-  } catch (err) {
-    console.log("MAIN ERROR:", err);
-  }
-});
-
-// ================= REACTION (FINAL FIXED) =================
-bot.on("message_reaction", async (reaction) => {
-  try {
-    console.log("🔥 REACTION EVENT:", reaction);
-
-    if (!reaction || !reaction.message_id || !reaction.chat) return;
-
-    const messageId = reaction.message_id;
-    const chatId = reaction.chat.id;
-    const userId = reaction.user?.id || reaction.from?.id;
-
-    if (!userId) return;
-
-    console.log("👤 User:", userId);
-    console.log("💬 Message:", messageId);
-
-    // bot message না হলে skip
-    if (!botMessages.has(messageId)) {
-      console.log("❌ Not bot message");
-      return;
-    }
-
-    // admin না হলে skip
-    if (!config.admins?.includes(userId)) {
-      console.log("❌ Not admin");
-      return;
-    }
-
-    const reacts = reaction.new_reaction || [];
-
-    for (let r of reacts) {
-      if (r.type !== "emoji") continue;
-
-      console.log("😀 Emoji:", r.emoji);
-
-      if (config.reactUnsend?.includes(r.emoji)) {
-        console.log("✅ MATCH → DELETE");
-
-        await bot.deleteMessage(chatId, messageId);
-        botMessages.delete(messageId);
-        return;
-      }
-    }
-
-  } catch (e) {
-    console.log("REACTION ERROR:", e);
-  }
-});
-
-// ================= CALLBACK =================
-bot.on("callback_query", async (query) => {
-  try {
     if (!query.message) return;
-
+ 
     const msgId = query.message.message_id;
     const message = messageUtils(bot, query.message);
-
+ 
     const data =
       global.functions.reply.get(msgId) ||
       global.functions.onReply.get(msgId);
-
+ 
     if (!data) return;
-
+ 
     const command = global.commands.get(data.commandName);
-
-    if (command?.onReply) {
-      await command.onReply({
+ 
+    if (command?.onReply || command?.reply) {
+      await (command.onReply || command.reply)({
         bot,
         event: query,
         msg: query.message,
@@ -232,19 +350,37 @@ bot.on("callback_query", async (query) => {
         threadsData
       });
     }
-
+ 
   } catch (err) {
-    console.log("CALLBACK ERROR:", err);
+    console.log("❌ CALLBACK ERROR:", err);
   }
 });
-
-// ================= ERROR =================
-process.on("unhandledRejection", (err) => {
-  console.log("UNHANDLED:", err);
+ 
+process.on("unhandledRejection", (reason) => {
+  console.error("💥 UNHANDLED REJECTION:", reason);
 });
-
+ 
 process.on("uncaughtException", (err) => {
-  console.log("CRASH:", err);
+  console.error("🔥 UNCAUGHT EXCEPTION:", err);
 });
-
-console.log("✅ BOT READY");
+ 
+console.log(`
+DEFINITELY BY SK SIDDIK ━━━━━━━━━━♡
+ 
+███████╗██╗██████╗ ██████╗ ██╗██╗  ██╗    ██████╗  ██████╗ ████████╗
+██╔════╝██║██╔══██╗██╔══██╗██║██║ ██╔╝    ██╔══██╗██╔═══██╗╚══██╔══╝
+███████╗██║██║  ██║██║  ██║██║█████╔╝     ██████╔╝██║   ██║   ██║   
+╚════██║██║██║  ██║██║  ██║██║██╔═██╗     ██╔══██╗██║   ██║   ██║   
+███████║██║██████╔╝██████╔╝██║██║  ██╗    ██████╔╝╚██████╔╝   ██║   
+╚══════╝╚═╝╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═╝    ╚═════╝  ╚═════╝    ╚═╝   
+                                                                    
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┣➤🤖 SIDDIK BOT SYSTEM READY
+┣━━━━━━━━━━━━━━━━━━━
+┣➤Name   : ${config.botName}
+┣━━━━━━━━━━━━━━━━━━━
+┣➤Prefix : ${config.prefix}
+┣━━━━━━━━━━━━━━━━━━━
+┣➤Owner  : ${config.owner}
+┗━━━━━━━━━━━━━━━━𝗘𝗡𝗝𝗢𝗬━━━━━━━━━━━━━┛
+`);

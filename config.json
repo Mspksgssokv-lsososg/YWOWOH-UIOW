@@ -7,13 +7,6 @@
   "prefix": "/",
   "api": "https://www.noobs-api.rf.gd/dipto",
 
-  "reactUnsend": [
-    "😡",
-    "😾",
-    "👎",
-    "😠"
-  ],
-
   "database": {
     "mongo": false,
     "json": true
