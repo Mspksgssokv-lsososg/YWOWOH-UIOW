@@ -4,7 +4,6 @@ const { loadScripts, messageUtils } = require("./utils");
 
 const fs = require("fs");
 const path = require("path");
-const express = require("express");
 
 const utils = require("./utils");
 global.utils = utils;
@@ -15,17 +14,22 @@ const threadsData = require("./database/threads");
 const token = process.env.TELEGRAM_BOT_TOKEN || config.token;
 const bot = new TelegramBot(token, { polling: true });
 
-// ================= REACT UNSEND SETUP =================
+// ================= REACT UNSEND TRACK =================
 const botMessages = new Set();
 
-// সব bot message auto track
+// সব bot message track
 const oldSendMessage = bot.sendMessage.bind(bot);
 bot.sendMessage = async function (chatId, text, options = {}) {
   try {
     const msg = await oldSendMessage(chatId, text, options);
-    if (msg?.message_id) botMessages.add(msg.message_id);
+    if (msg?.message_id) {
+      botMessages.add(msg.message_id);
+      console.log("📩 Bot message:", msg.message_id);
+    }
     return msg;
-  } catch (e) {}
+  } catch (e) {
+    console.log("SEND ERROR:", e);
+  }
 };
 
 // ================= GLOBAL =================
@@ -106,7 +110,9 @@ bot.on("message", async (msg) => {
           if (cmd.onFirstChat) {
             await cmd.onFirstChat({ bot, event: msg, msg, message, usersData, threadsData });
           }
-        } catch {}
+        } catch (e) {
+          console.log("FIRST CHAT ERROR:", e);
+        }
       }
     }
 
@@ -129,43 +135,73 @@ bot.on("message", async (msg) => {
     if (!command) return;
 
     try {
-      if (command.onStart)
-        await command.onStart({ bot, event: msg, msg, args, message, usersData, threadsData });
+      if (command.onStart) {
+        await command.onStart({
+          bot,
+          event: msg,
+          msg,
+          args,
+          message,
+          usersData,
+          threadsData
+        });
+      }
+    } catch (err) {
+      console.log("COMMAND ERROR:", err);
+    }
 
-    } catch {}
-  } catch {}
+  } catch (err) {
+    console.log("MAIN ERROR:", err);
+  }
 });
 
-// ================= REACTION (FINAL SYSTEM) =================
+// ================= REACTION (FINAL FIXED) =================
 bot.on("message_reaction", async (reaction) => {
   try {
-    if (!reaction || !reaction.message_id || !reaction.chat || !reaction.user) return;
+    console.log("🔥 REACTION EVENT:", reaction);
+
+    if (!reaction || !reaction.message_id || !reaction.chat) return;
 
     const messageId = reaction.message_id;
     const chatId = reaction.chat.id;
-    const userId = reaction.user.id;
+    const userId = reaction.user?.id || reaction.from?.id;
 
-    // bot message না হলে ignore
-    if (!botMessages.has(messageId)) return;
+    if (!userId) return;
 
-    // admin না হলে ignore
-    if (!config.admins?.includes(userId)) return;
+    console.log("👤 User:", userId);
+    console.log("💬 Message:", messageId);
+
+    // bot message না হলে skip
+    if (!botMessages.has(messageId)) {
+      console.log("❌ Not bot message");
+      return;
+    }
+
+    // admin না হলে skip
+    if (!config.admins?.includes(userId)) {
+      console.log("❌ Not admin");
+      return;
+    }
 
     const reacts = reaction.new_reaction || [];
 
     for (let r of reacts) {
       if (r.type !== "emoji") continue;
 
+      console.log("😀 Emoji:", r.emoji);
+
       if (config.reactUnsend?.includes(r.emoji)) {
-        try {
-          await bot.deleteMessage(chatId, messageId);
-          botMessages.delete(messageId);
-        } catch {}
+        console.log("✅ MATCH → DELETE");
+
+        await bot.deleteMessage(chatId, messageId);
+        botMessages.delete(messageId);
         return;
       }
     }
 
-  } catch {}
+  } catch (e) {
+    console.log("REACTION ERROR:", e);
+  }
 });
 
 // ================= CALLBACK =================
@@ -197,11 +233,18 @@ bot.on("callback_query", async (query) => {
       });
     }
 
-  } catch {}
+  } catch (err) {
+    console.log("CALLBACK ERROR:", err);
+  }
 });
 
 // ================= ERROR =================
-process.on("unhandledRejection", () => {});
-process.on("uncaughtException", () => {});
+process.on("unhandledRejection", (err) => {
+  console.log("UNHANDLED:", err);
+});
+
+process.on("uncaughtException", (err) => {
+  console.log("CRASH:", err);
+});
 
 console.log("✅ BOT READY");
