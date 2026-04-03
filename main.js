@@ -4,9 +4,10 @@ const { loadScripts, messageUtils } = require("./utils");
 
 const fs = require("fs");
 const path = require("path");
+const express = require("express");
 
-// ================= GLOBAL =================
-global.utils = require("./utils");
+const utils = require("./utils");
+global.utils = utils;
 
 const usersData = require("./database/users");
 const threadsData = require("./database/threads");
@@ -25,89 +26,118 @@ global.functions = {
 };
 
 global.cooldowns = new Map();
-global.firstChatMap = new Set();
+global.firstChatUsers = new Set(); // ✅ NEW
 
-// ================= LOAD =================
 loadScripts(bot);
 
-// ================= FILE =================
 const threadFile = path.join(process.cwd(), "threads.json");
 const banFile = path.join(process.cwd(), "banned.json");
 
-if (!fs.existsSync(threadFile)) fs.writeFileSync(threadFile, "[]");
-if (!fs.existsSync(banFile)) fs.writeFileSync(banFile, "[]");
+if (!fs.existsSync(banFile)) {
+  fs.writeFileSync(banFile, "[]");
+}
 
-function getJSON(file) {
+function getBanned() {
   try {
-    return JSON.parse(fs.readFileSync(file));
+    return JSON.parse(fs.readFileSync(banFile));
   } catch {
     return [];
   }
 }
 
-function saveJSON(file, data) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+function isBanned(userId) {
+  return getBanned().includes(String(userId));
 }
 
-function isBanned(userId) {
-  return getJSON(banFile).includes(String(userId));
+if (!fs.existsSync(threadFile)) {
+  fs.writeFileSync(threadFile, "[]");
 }
 
 function saveThread(chatId) {
-  const data = getJSON(threadFile);
+  let data = [];
+  try {
+    data = JSON.parse(fs.readFileSync(threadFile));
+  } catch {
+    data = [];
+  }
+
   if (!data.includes(chatId)) {
     data.push(chatId);
-    saveJSON(threadFile, data);
+    fs.writeFileSync(threadFile, JSON.stringify(data));
   }
 }
 
-// ================= MESSAGE =================
 bot.on("message", async (msg) => {
   try {
-    const text = msg.text?.trim();
+    const text = msg.text?.trim() || "";
     if (!text) return;
 
     const prefix = config.prefix;
     const message = messageUtils(bot, msg);
 
-    const chatId = msg.chat?.id;
-    const userId = msg.from?.id;
-    if (!chatId || !userId) return;
-
+    const chatId = msg.chat.id;
+    const userId = msg.from.id;
     const isBotAdmin = (config.admins || []).includes(userId);
 
-    // ================= BAN =================
-    if (isBanned(userId))
-      return message.reply("🚫 You are banned");
+    if (isBanned(userId)) {
+      return bot.sendMessage(
+        chatId,
+        "🚫 | 𝐘𝐨𝐮 𝐡𝐚𝐯𝐞 𝐛𝐞𝐞𝐧 𝐛𝐚𝐧𝐧𝐞𝐝 𝐟𝐫𝐨𝐦 𝐮𝐬𝐢𝐧𝐠 𝐭𝐡𝐞 𝐛𝐨𝐭"
+      );
+    }
 
-    if (global.adminOnly && !isBotAdmin)
-      return message.reply("🔒 Admin only");
+    if (global.adminOnly && !isBotAdmin) {
+      return bot.sendMessage(
+        chatId,
+        "🔒 | 𝐁𝐨𝐭 𝐢𝐬 𝐢𝐧 𝐚𝐝𝐦𝐢𝐧-𝐨𝐧𝐥𝐲 𝐦𝐨𝐝𝐞 "
+      );
+    }
 
     saveThread(chatId);
 
-    // ================= FIRST CHAT =================
-    if (!global.firstChatMap.has(chatId)) {
-      global.firstChatMap.add(chatId);
-      for (const ev of global.events.values()) {
-        if (ev.onFirstChat)
-          await ev.onFirstChat({ bot, event: msg, message, usersData, threadsData });
+    // ✅ FIRST CHAT SYSTEM
+    if (!global.firstChatUsers.has(userId)) {
+      global.firstChatUsers.add(userId);
+
+      for (let cmd of global.commands.values()) {
+        try {
+          if (cmd.onFirstChat) {
+            await cmd.onFirstChat({
+              bot,
+              event: msg,
+              msg,
+              message,
+              usersData,
+              threadsData
+            });
+          }
+        } catch (e) {
+          console.log("❌ onFirstChat Error:", e);
+        }
       }
     }
 
-    // ================= ON CHAT =================
-    for (const cmd of global.commands.values()) {
-      if (cmd.onChat)
-        await cmd.onChat({ bot, event: msg, msg, message, usersData, threadsData });
+    const isOperator = (config.botOperator || []).includes(userId);
+
+    if (config.ignore_list_ID?.enable &&
+        config.ignore_list_ID.IDS.includes(userId)) return;
+
+    if (config.white_list_ID?.enable &&
+        !config.white_list_ID.IDS.includes(userId)) return;
+
+    if (config.white_list_group?.enable &&
+        !config.white_list_group.groups.includes(chatId)) return;
+
+    let isAdmin = false;
+    if (msg.chat.type !== "private") {
+      try {
+        const member = await bot.getChatMember(chatId, userId);
+        isAdmin = ["administrator", "creator"].includes(member.status);
+      } catch {}
     }
 
-    // ================= EVENT =================
-    for (const ev of global.events.values()) {
-      if (ev.onEvent)
-        await ev.onEvent({ bot, event: msg, message, usersData, threadsData });
-    }
-
-    // ================= REPLY =================
     const replyMsgId = msg.reply_to_message?.message_id;
+
     if (replyMsgId) {
       const data =
         global.functions.reply.get(replyMsgId) ||
@@ -115,8 +145,9 @@ bot.on("message", async (msg) => {
 
       if (data) {
         const command = global.commands.get(data.commandName);
-        if (command?.onReply) {
-          return await command.onReply({
+
+        if (command?.onReply || command?.reply) {
+          return await (command.onReply || command.reply)({
             bot,
             event: msg,
             msg,
@@ -130,11 +161,79 @@ bot.on("message", async (msg) => {
       }
     }
 
-    // ================= COMMAND =================
-    if (!text.startsWith(prefix)) return;
+    // ✅ onChat + noPrefix
+    for (let cmd of global.commands.values()) {
+      try {
+        if (cmd.onChat) {
+          await cmd.onChat({ bot, event: msg, msg, message, usersData, threadsData });
+        }
 
-    const args = text.slice(prefix.length).trim().split(/ +/);
-    const commandName = args.shift()?.toLowerCase();
+        if (cmd.noPrefix && !text.startsWith(prefix)) {
+          await cmd.noPrefix({ bot, event: msg, msg, message, usersData, threadsData });
+        }
+      } catch (e) {
+        console.log("❌ Event Error:", e);
+      }
+    }
+
+    // ✅ GLOBAL EVENT SYSTEM
+    for (let cmd of global.commands.values()) {
+      try {
+        if (cmd.onEvent) {
+          await cmd.onEvent({
+            bot,
+            event: msg,
+            msg,
+            message,
+            usersData,
+            threadsData
+          });
+        }
+
+        if (cmd.handlerEvent) {
+          await cmd.handlerEvent({
+            bot,
+            event: msg,
+            msg,
+            message,
+            usersData,
+            threadsData
+          });
+        }
+      } catch (e) {
+        console.log("❌ onEvent Error:", e);
+      }
+    }
+
+    // ✅ onMessage
+    for (let cmd of global.commands.values()) {
+      try {
+        if (cmd.onMessage) {
+          await cmd.onMessage({
+            bot,
+            chatId,
+            userId,
+            message: msg,
+            messageId: msg.message_id,
+            text,
+            usersData,
+            threadsData
+          });
+        }
+      } catch (e) {
+        console.log("❌ onMessage Error:", e);
+      }
+    }
+
+    let commandName, args;
+
+    if (text.startsWith(prefix)) {
+      args = text.slice(prefix.length).trim().split(/ +/);
+      commandName = args.shift()?.toLowerCase();
+    } else {
+      args = text.trim().split(/ +/);
+      commandName = args.shift()?.toLowerCase();
+    }
 
     const command =
       global.commands.get(commandName) ||
@@ -142,50 +241,57 @@ bot.on("message", async (msg) => {
         cmd.config?.aliases?.includes(commandName)
       );
 
-    // ================= NOT FOUND =================
-    if (!command)
-      return message.reply("❌ Command not found");
+    if (!command) return;
 
-    // ================= COOLDOWN =================
-    const cooldown = (command.config?.cooldown || 0) * 1000;
+    if (command.config?.usePrefix === true && !text.startsWith(prefix)) return;
 
-    if (cooldown > 0) {
-      if (!global.cooldowns.has(commandName))
+    const cooldownTime = (command.config?.cooldown || 0) * 1000;
+
+    if (cooldownTime > 0) {
+      if (!global.cooldowns.has(commandName)) {
         global.cooldowns.set(commandName, new Map());
+      }
 
       const now = Date.now();
       const timestamps = global.cooldowns.get(commandName);
-      const expire = timestamps.get(userId) || 0;
+      const expirationTime = timestamps.get(userId) || 0;
 
-      if (now < expire)
-        return message.reply(`⏳ Wait ${Math.ceil((expire - now) / 1000)}s`);
+      if (now < expirationTime) {
+        const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
+        return message.reply(`⏳ | 𝐏𝐥𝐞𝐚𝐬𝐞 𝐰𝐚𝐢𝐭 ${timeLeft}s`);
+      }
 
-      timestamps.set(userId, now + cooldown);
-      setTimeout(() => timestamps.delete(userId), cooldown);
+      timestamps.set(userId, now + cooldownTime);
+
+      setTimeout(() => {
+        timestamps.delete(userId);
+      }, cooldownTime);
     }
 
-    // ================= ROLE =================
     const role = command.config?.role ?? 0;
 
     if (role === 2 && !isBotAdmin)
-      return message.reply("⚠️ Only bot admin");
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐛𝐨𝐭'𝐬 𝐚𝐝𝐦𝐢𝐧");
 
-    // ================= START =================
+    if (role === 1 && !isBotAdmin && !isAdmin)
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐠𝐫𝐨𝐮𝐩 𝐚𝐝𝐦𝐢𝐧");
+
+    if (role === 3 && !isBotAdmin && !isOperator)
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫");
+
     try {
       if (command.onStart)
-        await command.onStart({
-          bot,
-          event: msg,
-          msg,
-          args,
-          message,
-          usersData,
-          threadsData
-        });
+        await command.onStart({ bot, event: msg, msg, args, message, usersData, threadsData });
+
+      else if (command.run)
+        await command.run({ bot, event: msg, msg, args, message, usersData, threadsData });
+
+      else if (command.start)
+        await command.start({ bot, event: msg, msg, args, message, usersData, threadsData });
 
     } catch (err) {
       console.log(`❌ ${commandName}:`, err);
-      message.reply("❌ Error occurred");
+      message.err(err);
     }
 
   } catch (err) {
@@ -193,59 +299,64 @@ bot.on("message", async (msg) => {
   }
 });
 
-// ================= REACTION =================
+// ✅ REACTION SYSTEM
 bot.on("message_reaction", async (reaction) => {
-  for (const ev of global.events.values()) {
-    if (ev.onReaction)
-      await ev.onReaction({ bot, event: reaction });
-  }
-});
-
-// ================= CALLBACK =================
-bot.on("callback_query", async (query) => {
-  const msgId = query.message?.message_id;
-  const message = messageUtils(bot, query.message);
-
-  const data =
-    global.functions.reply.get(msgId) ||
-    global.functions.onReply.get(msgId);
-
-  if (!data) return;
-
-  const command = global.commands.get(data.commandName);
-
-  if (command?.onReply) {
-    await command.onReply({
-      bot,
-      event: query,
-      msg: query.message,
-      message,
-      args: query.data?.split(" ") || [],
-      Reply: data,
-      usersData,
-      threadsData
-    });
-  }
-});
-
-// ================= GLOBAL EVENT =================
-global.handlerEvent = async function (type, data) {
-  for (const ev of global.events.values()) {
-    if (ev.handlerEvent) {
-      await ev.handlerEvent({ bot, type, data });
+  try {
+    for (let cmd of global.commands.values()) {
+      if (cmd.onReaction) {
+        await cmd.onReaction({
+          bot,
+          event: reaction,
+          usersData,
+          threadsData
+        });
+      }
     }
+  } catch (e) {
+    console.log("❌ Reaction Error:", e);
   }
-};
+});
 
-// ================= ERROR =================
-process.on("unhandledRejection", console.error);
-process.on("uncaughtException", console.error);
+// ✅ CALLBACK
+bot.on("callback_query", async (query) => {
+  try {
+    if (!query.message) return;
 
-// ================= START =================
-console.log(`
-🤖 ${config.botName} Running...
-Prefix: ${config.prefix}
-Owner : ${config.owner}
-`);
+    const msgId = query.message.message_id;
+    const message = messageUtils(bot, query.message);
 
-bot.on("polling_error", console.log);
+    const data =
+      global.functions.reply.get(msgId) ||
+      global.functions.onReply.get(msgId);
+
+    if (!data) return;
+
+    const command = global.commands.get(data.commandName);
+
+    if (command?.onReply || command?.reply) {
+      await (command.onReply || command.reply)({
+        bot,
+        event: query,
+        msg: query.message,
+        message,
+        args: query.data?.split(" ") || [],
+        Reply: data,
+        usersData,
+        threadsData
+      });
+    }
+
+  } catch (err) {
+    console.log("❌ CALLBACK ERROR:", err);
+  }
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("💥 UNHANDLED REJECTION:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("🔥 UNCAUGHT EXCEPTION:", err);
+});
+
+console.log(`✅ BOT READY`);
