@@ -1,11 +1,8 @@
-const fs = require("fs");
-const path = require("path");
-
 module.exports = {
   config: {
     name: "allgroup",
     aliases: ["list"],
-    version: "2.4",
+    version: "4.0",
     author: "SK-SIDDIK-KHAN",
     countDown: 5,
     usePrefix: false,
@@ -13,17 +10,19 @@ module.exports = {
     category: "owner",
   },
 
+  // 🔥 runtime memory (global)
+  onLoad: () => {
+    if (!global.groupStore) {
+      global.groupStore = new Set();
+    }
+  },
+
   onStart: async ({ bot, message }) => {
     try {
-
-      const chats = await bot.getChats();
-      const groups = chats.filter(chat =>
-        chat.type === "group" ||
-        chat.type === "supergroup"
-      );
+      const groups = Array.from(global.groupStore || []);
 
       if (!groups.length) {
-        return message.reply("⚠️ | 𝙉𝙤 𝙂𝙧𝙤𝙪𝙥𝙨 𝙁𝙤𝙪𝙣𝙙");
+        return message.reply("⚠️ | No Groups Found");
       }
 
       let msg =
@@ -36,15 +35,21 @@ module.exports = {
       let map = [];
 
       for (let i = 0; i < groups.length; i++) {
-        const chat = groups[i];
+        const chatId = groups[i];
+        let name = "Unknown";
+
+        try {
+          const chat = await bot.getChat(chatId);
+          name = chat.title || "No Name";
+        } catch {}
 
         msg +=
-          `│ ${i + 1}. ${chat.title || "No Name"}\n` +
-          `│ 🆔 ${chat.id}\n`;
+          `│ ${i + 1}. ${name}\n` +
+          `│ 🆔 ${chatId}\n│\n`;
 
         map.push({
           index: i + 1,
-          chatId: chat.id
+          chatId
         });
       }
 
@@ -61,7 +66,7 @@ module.exports = {
 
     } catch (e) {
       console.log("ALLGROUP ERROR:", e);
-      message.reply("❌ | 𝙀𝙧𝙧𝙤𝙧 𝙁𝙚𝙩𝙘𝙝𝙞𝙣𝙜 𝙂𝙧𝙤𝙪𝙥𝙨");
+      message.reply("❌ Error Fetching Groups");
     }
   },
 
@@ -70,24 +75,25 @@ module.exports = {
       const num = parseInt(event.text);
 
       if (isNaN(num)) {
-        return message.reply("❌ | 𝙄𝙣𝙫𝙖𝙡𝙞𝙙 𝙉𝙪𝙢𝙗𝙚𝙧");
+        return message.reply("❌ Invalid Number");
       }
 
       const group = Reply.groups.find(g => g.index === num);
 
       if (!group) {
-        return message.reply("❌ | 𝙂𝙧𝙤𝙪𝙥 𝙉𝙤𝙩 𝙁𝙤𝙪𝙣𝙙");
+        return message.reply("❌ Group Not Found");
       }
 
       await bot.leaveChat(group.chatId);
 
-      message.reply(
-        `✅ | 𝙇𝙚𝙛𝙩 𝙂𝙧𝙤𝙪𝙥\n🆔 ${group.chatId}`
-      );
+      // remove from memory
+      global.groupStore.delete(group.chatId);
+
+      message.reply(`✅ Left Group\n🆔 ${group.chatId}`);
 
     } catch (e) {
       console.log("REPLY ERROR:", e);
-      message.reply("❌ | 𝙁𝙖𝙞𝙡𝙚𝙙 𝙏𝙤 𝙇𝙚𝙖𝙫𝙚");
+      message.reply("❌ Failed To Leave");
     }
   }
 };
