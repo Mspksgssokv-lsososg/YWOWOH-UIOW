@@ -5,24 +5,6 @@ const { loadScripts, messageUtils } = require("./utils");
 const fs = require("fs");
 const path = require("path");
 
-// ================= SECURITY =================
-const chalk = require("chalk");
-const pkg = require("./package.json");
-
-const logger = {
-  error: (msg) => console.log(chalk.redBright("❌ " + msg)),
-  success: (msg) => console.log(chalk.greenBright("✅ " + msg))
-};
-
-try {
-  if (pkg.name !== "SIDDIK_BOT") process.exit(1);
-  if (pkg.author !== "SK-SIDDIK-KHAN") process.exit(1);
-  if (config.owner !== "SK-SIDDIK-KHAN") process.exit(1);
-  logger.success("Security Check Passed");
-} catch {
-  process.exit(1);
-}
-
 // ================= GLOBAL =================
 global.utils = require("./utils");
 
@@ -103,21 +85,6 @@ bot.on("message", async (msg) => {
 
     saveThread(chatId);
 
-    // ================= REACT UNSEND =================
-    if (msg.reply_to_message) {
-      const replyText = text;
-      const reactList = global.config.reactUnsend || [];
-      const isBotMessage = msg.reply_to_message.from?.is_bot;
-
-      if (isBotAdmin && isBotMessage && reactList.includes(replyText)) {
-        try {
-          await bot.deleteMessage(chatId, msg.reply_to_message.message_id);
-          await bot.deleteMessage(chatId, msg.message_id);
-        } catch {}
-        return;
-      }
-    }
-
     // ================= FIRST CHAT =================
     if (!global.firstChatMap.has(chatId)) {
       global.firstChatMap.add(chatId);
@@ -175,32 +142,9 @@ bot.on("message", async (msg) => {
         cmd.config?.aliases?.includes(commandName)
       );
 
-    // ================= SMART SUGGEST =================
-    if (!command) {
-      const allCommands = [...global.commands.keys()];
-
-      let bestMatch = null;
-      let bestScore = 0;
-
-      for (const cmdName of allCommands) {
-        let score = 0;
-        for (let i = 0; i < Math.min(cmdName.length, commandName.length); i++) {
-          if (cmdName[i] === commandName[i]) score++;
-        }
-        score = score / cmdName.length;
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = cmdName;
-        }
-      }
-
-      if (bestScore >= 0.4 && bestMatch) {
-        return message.reply(`❌ Command not found\n💡 Try: ${prefix}${bestMatch}`);
-      }
-
+    // ================= NOT FOUND =================
+    if (!command)
       return message.reply("❌ Command not found");
-    }
 
     // ================= COOLDOWN =================
     const cooldown = (command.config?.cooldown || 0) * 1000;
@@ -303,3 +247,5 @@ console.log(`
 Prefix: ${config.prefix}
 Owner : ${config.owner}
 `);
+
+bot.on("polling_error", console.log);
