@@ -5,7 +5,7 @@ module.exports = {
   config: {
     name: "allgroup",
     aliases: ["list"],
-    version: "2.2",
+    version: "2.4",
     author: "SK-SIDDIK-KHAN",
     countDown: 5,
     usePrefix: false,
@@ -15,14 +15,12 @@ module.exports = {
 
   onStart: async ({ bot, message }) => {
     try {
-      const threadFile = path.join(process.cwd(), "threads.json");
 
-      let groups = [];
-      try {
-        groups = JSON.parse(fs.readFileSync(threadFile));
-      } catch {
-        groups = [];
-      }
+      const chats = await bot.getChats();
+      const groups = chats.filter(chat =>
+        chat.type === "group" ||
+        chat.type === "supergroup"
+      );
 
       if (!groups.length) {
         return message.reply("⚠️ | 𝙉𝙤 𝙂𝙧𝙤𝙪𝙥𝙨 𝙁𝙤𝙪𝙣𝙙");
@@ -38,23 +36,15 @@ module.exports = {
       let map = [];
 
       for (let i = 0; i < groups.length; i++) {
-        const chatId = groups[i];
-
-        let name = "⛔ Unknown Group";
-
-        try {
-          const chat = await bot.getChat(chatId);
-          name = chat.title || "No Name";
-        } catch {}
+        const chat = groups[i];
 
         msg +=
-          `│ ${i + 1}. ${name}\n` +
-          `│ 🆔 ${chatId}\n` +
-          `│\n`;
+          `│ ${i + 1}. ${chat.title || "No Name"}\n` +
+          `│ 🆔 ${chat.id}\n`;
 
         map.push({
           index: i + 1,
-          chatId
+          chatId: chat.id
         });
       }
 
