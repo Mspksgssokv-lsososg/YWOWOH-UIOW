@@ -1,19 +1,19 @@
+const fs = require("fs");
+const path = require("path");
+
 module.exports = {
   config: {
     name: "allgroup",
     aliases: ["groups", "glist"],
-    version: "1.0",
+    version: "2.0",
     author: "SK-SIDDIK-KHAN",
-    role: 2, // only bot admin
+    role: 2,
     shortDescription: "Show all groups & leave",
     category: "admin"
   },
 
   onStart: async ({ bot, message }) => {
     try {
-      const fs = require("fs");
-      const path = require("path");
-
       const threadFile = path.join(process.cwd(), "threads.json");
 
       let groups = [];
@@ -23,34 +23,51 @@ module.exports = {
         groups = [];
       }
 
-      if (groups.length === 0) {
+      if (!groups.length) {
         return message.reply("❌ | No groups found");
       }
 
       let msg = "📌 | GROUP LIST:\n\n";
       let map = [];
+      let validGroups = [];
 
       for (let i = 0; i < groups.length; i++) {
         const chatId = groups[i];
 
+        let name = "Unknown Group";
+        let count = "N/A";
+
         try {
           const chat = await bot.getChat(chatId);
-          const count = await bot.getChatMembersCount(chatId);
-
-          msg += `${i + 1}. ${chat.title}\n👥 Members: ${count}\n🆔 ID: ${chatId}\n\n`;
-
-          map.push({
-            index: i + 1,
-            chatId
-          });
-
+          name = chat.title || chat.username || "Private Chat";
         } catch {
-          msg += `${i + 1}. Unknown Group\n🆔 ${chatId}\n\n`;
-          map.push({
-            index: i + 1,
-            chatId
-          });
+          name = "Unknown Group";
         }
+
+        try {
+          count = await bot.getChatMembersCount(chatId);
+        } catch {
+          count = "N/A";
+        }
+
+        // ❌ skip broken group
+        if (name === "Unknown Group") continue;
+
+        msg += `${map.length + 1}. ${name}\n👥 Members: ${count}\n🆔 ID: ${chatId}\n\n`;
+
+        map.push({
+          index: map.length + 1,
+          chatId
+        });
+
+        validGroups.push(chatId);
+      }
+
+      // ✅ AUTO CLEAN INVALID GROUP
+      fs.writeFileSync(threadFile, JSON.stringify(validGroups, null, 2));
+
+      if (!map.length) {
+        return message.reply("❌ | No valid groups found");
       }
 
       msg += "👉 Reply with number to leave group";
@@ -63,7 +80,7 @@ module.exports = {
       });
 
     } catch (e) {
-      console.log(e);
+      console.log("ALLGROUP ERROR:", e);
       message.reply("❌ Error fetching groups");
     }
   },
@@ -86,13 +103,14 @@ module.exports = {
 
       try {
         await bot.leaveChat(chatId);
-        message.reply(`✅ | Left group:\n🆔 ${chatId}`);
+        message.reply(`✅ | Successfully left group\n🆔 ${chatId}`);
       } catch (err) {
+        console.log("LEAVE ERROR:", err);
         message.reply("❌ | Failed to leave group");
       }
 
     } catch (e) {
-      console.log(e);
+      console.log("REPLY ERROR:", e);
       message.reply("❌ Reply error");
     }
   }
