@@ -1,101 +1,99 @@
 module.exports = {
   config: {
     name: "allgroup",
-    aliases: ["allgc", "groups"],
-    version: "3.0",
-    author: "Siddik",
-    description: "Show groups and leave by reply",
+    aliases: ["groups", "glist"],
+    version: "1.0",
+    author: "SK-SIDDIK-KHAN",
+    role: 2, // only bot admin
+    shortDescription: "Show all groups & leave",
     category: "admin"
   },
 
-  onStart: async ({ bot, message, msg, threadsData }) => {
+  onStart: async ({ bot, message }) => {
     try {
-      const config = global.config;
-      const userId = msg.from.id;
+      const fs = require("fs");
+      const path = require("path");
 
-      // 🔒 ADMIN ONLY
-      if (!(config.admins || []).includes(userId)) {
-        return message.reply("❌ | You are not admin");
+      const threadFile = path.join(process.cwd(), "threads.json");
+
+      let groups = [];
+      try {
+        groups = JSON.parse(fs.readFileSync(threadFile));
+      } catch {
+        groups = [];
       }
 
-      const allThreads = await threadsData.getAll();
-
-      if (!allThreads || allThreads.length === 0) {
+      if (groups.length === 0) {
         return message.reply("❌ | No groups found");
       }
 
-      let text = `📊 | Total Groups: ${allThreads.length}\n\n`;
+      let msg = "📌 | GROUP LIST:\n\n";
+      let map = [];
 
-      for (let i = 0; i < allThreads.length; i++) {
-        const threadId = allThreads[i].threadId;
-
-        let name = "Unknown";
-        let members = "N/A";
+      for (let i = 0; i < groups.length; i++) {
+        const chatId = groups[i];
 
         try {
-          const chat = await bot.getChat(threadId);
-          name = chat.title || "No Name";
+          const chat = await bot.getChat(chatId);
+          const count = await bot.getChatMembersCount(chatId);
 
-          const count = await bot.getChatMemberCount(threadId);
-          members = count;
-        } catch {}
+          msg += `${i + 1}. ${chat.title}\n👥 Members: ${count}\n🆔 ID: ${chatId}\n\n`;
 
-        text += `${i + 1}. ${name}\n👥 ${members} members\n\n`;
+          map.push({
+            index: i + 1,
+            chatId
+          });
+
+        } catch {
+          msg += `${i + 1}. Unknown Group\n🆔 ${chatId}\n\n`;
+          map.push({
+            index: i + 1,
+            chatId
+          });
+        }
       }
 
-      text += `👉 Reply with number to leave group`;
+      msg += "👉 Reply with number to leave group";
 
-      const sent = await message.reply(text);
+      const sent = await message.reply(msg);
 
-      // ✅ IMPORTANT (YOUR SYSTEM)
-      global.functions.onReply.set(sent.message_id, {
-        commandName: "allgroup",
-        author: userId,
-        threads: allThreads
+      global.functions.reply.set(sent.message_id, {
+        commandName: this.config.name,
+        groups: map
       });
 
-    } catch (err) {
-      console.log("ALLGROUP ERROR:", err);
-      return message.reply("❌ " + err.message);
+    } catch (e) {
+      console.log(e);
+      message.reply("❌ Error fetching groups");
     }
   },
 
-  onReply: async ({ bot, message, msg, Reply }) => {
+  onReply: async ({ bot, event, message, Reply }) => {
     try {
-      const userId = msg.from.id;
+      const input = parseInt(event.text);
 
-      // 🔒 only command sender
-      if (userId !== Reply.author) return;
-
-      const choice = parseInt(msg.text);
-
-      if (isNaN(choice)) {
-        return message.reply("❌ | Send valid number");
+      if (isNaN(input)) {
+        return message.reply("❌ | Please enter a valid number");
       }
 
-      const thread = Reply.threads[choice - 1];
+      const selected = Reply.groups.find(g => g.index === input);
 
-      if (!thread) {
-        return message.reply("❌ | Not found");
+      if (!selected) {
+        return message.reply("❌ | Invalid selection");
       }
 
-      const threadId = thread.threadId;
+      const chatId = selected.chatId;
 
       try {
-        await bot.leaveChat(threadId);
-
-        // ✅ cleanup reply map
-        global.functions.onReply.delete(msg.reply_to_message.message_id);
-
-        return message.reply(`✅ Left group\n🆔 ${threadId}`);
-      } catch (e) {
-        console.log("LEAVE ERROR:", e);
-        return message.reply("❌ Failed to leave group");
+        await bot.leaveChat(chatId);
+        message.reply(`✅ | Left group:\n🆔 ${chatId}`);
+      } catch (err) {
+        message.reply("❌ | Failed to leave group");
       }
 
-    } catch (err) {
-      console.log("REPLY ERROR:", err);
-      return message.reply("❌ " + err.message);
+    } catch (e) {
+      console.log(e);
+      message.reply("❌ Reply error");
     }
   }
 };
