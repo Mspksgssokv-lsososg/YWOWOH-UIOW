@@ -29,17 +29,24 @@ global.cooldowns = new Map();
  
 loadScripts(bot);
 
-// ================= GOAT BOT STYLE SYSTEM =================
-global.GoatBot = {
-  commands: new Map(),
-  eventCommands: new Map(),
-  onReply: new Map(),
-  onReaction: new Map(),
-  onEvent: new Map()
+global.eventHandler = [];
+
+global.registerEvent = (event) => {
+  global.eventHandler.push(event);
 };
 
-global._firstChat = new Set();
-
+async function runEvents(type, data) {
+  for (const ev of global.eventHandler) {
+    try {
+      if (typeof ev[type] === "function") {
+        await ev[type](data);
+      }
+    } catch (e) {
+      console.log(`❌ Event ${type} Error:`, e);
+    }
+  }
+}
+ 
 const threadFile = path.join(process.cwd(), "threads.json");
 const banFile = path.join(process.cwd(), "banned.json");
  
@@ -80,13 +87,7 @@ function saveThread(chatId) {
 bot.on("message", async (msg) => {
   try {
 
-    // GoatBot onEvent
-    for (const [, data] of global.GoatBot.onEvent) {
-      const command = global.commands.get(data.commandName);
-      if (command?.onEvent) {
-        await command.onEvent({ bot, event: msg, data, usersData, threadsData });
-      }
-    }
+    await runEvents("onEvent", { bot, msg });
 
     const text = msg.text?.trim() || "";
     if (!text) return;
@@ -105,23 +106,12 @@ bot.on("message", async (msg) => {
   );
 }
 if (global.adminOnly && !isBotAdmin) {
-  return bot.sendMessage(
-    chatId,
-    "🔒 | 𝐁𝐨𝐭 𝐢𝐬 𝐢𝐧 𝐚𝐝𝐦𝐢𝐧-𝐨𝐧𝐥𝐲 𝐦𝐨𝐝𝐞 "
-  );
+  return; 
 }
  
     saveThread(chatId);
 
-    // GoatBot onFirstChat
-    if (!global._firstChat.has(chatId)) {
-      global._firstChat.add(chatId);
-      for (let cmd of global.commands.values()) {
-        if (cmd.onFirstChat) {
-          await cmd.onFirstChat({ bot, event: msg, usersData, threadsData });
-        }
-      }
-    }
+    await runEvents("onFirstChat", { bot, msg });
  
     const isOperator = (config.botOperator || []).includes(userId);
  
@@ -146,13 +136,15 @@ if (global.adminOnly && !isBotAdmin) {
  
     if (replyMsgId) {
 
-      // OLD system
+      await runEvents("onReply", { bot, msg });
+
       const data =
         global.functions.reply.get(replyMsgId) ||
         global.functions.onReply.get(replyMsgId);
-
+ 
       if (data) {
         const command = global.commands.get(data.commandName);
+ 
         if (command?.onReply || command?.reply) {
           return await (command.onReply || command.reply)({
             bot,
@@ -161,24 +153,6 @@ if (global.adminOnly && !isBotAdmin) {
             message,
             args: text.split(" "),
             Reply: data,
-            usersData,
-            threadsData
-          });
-        }
-      }
-
-      // GoatBot onReply
-      const goatReply = global.GoatBot.onReply.get(replyMsgId);
-      if (goatReply) {
-        const command = global.commands.get(goatReply.commandName);
-        if (command?.onReply) {
-          goatReply.delete = () => global.GoatBot.onReply.delete(replyMsgId);
-          return await command.onReply({
-            bot,
-            event: msg,
-            msg,
-            args: text.split(" "),
-            Reply: goatReply,
             usersData,
             threadsData
           });
@@ -200,16 +174,7 @@ if (global.adminOnly && !isBotAdmin) {
       }
     }
 
-    // GoatBot handlerEvent
-    for (const cmd of global.GoatBot.eventCommands.values()) {
-      try {
-        if (cmd.onStart) {
-          await cmd.onStart({ bot, event: msg, usersData, threadsData });
-        }
-      } catch (e) {
-        console.log("❌ EventCommand Error:", e);
-      }
-    }
+    await runEvents("onChat", { bot, msg });
  
     for (let cmd of global.commands.values()) {
       try {
@@ -249,6 +214,8 @@ if (global.adminOnly && !isBotAdmin) {
     if (!command) return;
  
     if (command.config?.usePrefix === true && !text.startsWith(prefix)) return;
+
+    await runEvents("handlerEvent", { bot, msg, commandName, args });
  
     const cooldownTime = (command.config?.cooldown || 0) * 1000;
  
@@ -279,7 +246,7 @@ if (global.adminOnly && !isBotAdmin) {
       return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐛𝐨𝐭'𝐬 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
  
     if (role === 1 && !isBotAdmin && !isAdmin)
-      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐠𝐫𝐨𝐮𝐩 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐠𝐫𝐨𝐮𝐩 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
  
     if (role === 3 && !isBotAdmin && !isOperator)
       return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
@@ -307,23 +274,7 @@ if (global.adminOnly && !isBotAdmin) {
 bot.on("callback_query", async (query) => {
   try {
 
-    // GoatBot onReaction
-    const reactData = global.GoatBot.onReaction.get(query.message.message_id);
-    if (reactData) {
-      const command = global.commands.get(reactData.commandName);
-      if (command?.onReaction) {
-        reactData.delete = () => global.GoatBot.onReaction.delete(query.message.message_id);
-        return await command.onReaction({
-          bot,
-          event: query,
-          msg: query.message,
-          args: query.data?.split(" ") || [],
-          Reaction: reactData,
-          usersData,
-          threadsData
-        });
-      }
-    }
+    await runEvents("onReaction", { bot, query });
 
     if (!query.message) return;
  
