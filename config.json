@@ -6,6 +6,12 @@
   "token": "8662229890:AAE2Duasul4Lvxbk3bzQ1tgmd3f90t75YfE",
   "prefix": "/",
   "api": "https://www.noobs-api.rf.gd/dipto",
+  "reactUnsend": [
+  "😡",
+  "😾",
+  "👎",
+  "😠"
+]
 
   "database": {
     "mongo": false,
