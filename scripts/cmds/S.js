@@ -2,7 +2,7 @@ module.exports = {
   config: {
     name: "allgroup",
     aliases: ["allgc", "groups"],
-    version: "2.2",
+    version: "3.0",
     author: "Siddik",
     description: "Show groups and leave by reply",
     category: "admin"
@@ -11,10 +11,9 @@ module.exports = {
   onStart: async ({ bot, message, msg, threadsData }) => {
     try {
       const config = global.config;
-
-      // ✅ FIX HERE
       const userId = msg.from.id;
 
+      // 🔒 ADMIN ONLY
       if (!(config.admins || []).includes(userId)) {
         return message.reply("❌ | You are not admin");
       }
@@ -31,20 +30,25 @@ module.exports = {
         const threadId = allThreads[i].threadId;
 
         let name = "Unknown";
+        let members = "N/A";
 
         try {
           const chat = await bot.getChat(threadId);
           name = chat.title || "No Name";
+
+          const count = await bot.getChatMemberCount(threadId);
+          members = count;
         } catch {}
 
-        text += `${i + 1}. ${name}\n`;
+        text += `${i + 1}. ${name}\n👥 ${members} members\n\n`;
       }
 
-      text += `\n👉 Reply with number to leave group`;
+      text += `👉 Reply with number to leave group`;
 
       const sent = await message.reply(text);
 
-      global.onReply.set(sent.message_id, {
+      // ✅ IMPORTANT (YOUR SYSTEM)
+      global.functions.onReply.set(sent.message_id, {
         commandName: "allgroup",
         author: userId,
         threads: allThreads
@@ -60,6 +64,7 @@ module.exports = {
     try {
       const userId = msg.from.id;
 
+      // 🔒 only command sender
       if (userId !== Reply.author) return;
 
       const choice = parseInt(msg.text);
@@ -78,8 +83,13 @@ module.exports = {
 
       try {
         await bot.leaveChat(threadId);
-        return message.reply(`✅ Left group:\n🆔 ${threadId}`);
+
+        // ✅ cleanup reply map
+        global.functions.onReply.delete(msg.reply_to_message.message_id);
+
+        return message.reply(`✅ Left group\n🆔 ${threadId}`);
       } catch (e) {
+        console.log("LEAVE ERROR:", e);
         return message.reply("❌ Failed to leave group");
       }
 
