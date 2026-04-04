@@ -1,40 +1,81 @@
+const TelegramBot = require("node-telegram-bot-api");
+
 module.exports = {
   config: {
     name: "adduser",
-    aliases: ["add"],
-    author: "SK-SIDDIK-KHAN",
-    countDown: 2,
-    role: 3,
-    description: "Send group invite link to user",
-    category: "Admin",
+    author: "Samir Œ (Fixed by Siddik)",
+    description: "Invite user via link",
+    category: "admin",
+    usage: "adduser <user_id>",
     usePrefix: true,
-    usage: "{pn} <userID>"
+    role: 1
   },
 
-  onStart: async ({ bot, msg, args, message }) => {
+  onStart: async ({ bot, msg, args }) => {
     const chatId = msg.chat.id;
+    const senderId = msg.from.id;
 
+    if (!args[0] && !msg.reply_to_message) {
+      return bot.sendMessage(
+        chatId,
+        "❌ | Reply user or give user ID"
+      );
+    }
+
+    // 🔥 user detect system
     const userId =
       msg.reply_to_message?.from.id ||
-      args[0];
+      (!isNaN(args[0]) ? parseInt(args[0]) : null);
 
     if (!userId) {
-      return message.reply("❌ | Provide user ID or reply user");
+      return bot.sendMessage(
+        chatId,
+        "❌ | Invalid user ID (username not supported)"
+      );
     }
 
     try {
-      const inviteLink = await bot.exportChatInviteLink(chatId);
+      // ✅ check admin
+      const me = await bot.getChatMember(chatId, senderId);
+      if (!["administrator", "creator"].includes(me.status)) {
+        return bot.sendMessage(
+          chatId,
+          "❌ | You must be admin"
+        );
+      }
 
-      await bot.sendMessage(
-        userId,
-        `📩 You are invited to join the group:\n${inviteLink}`
-      );
+      // ✅ create 1-time invite link
+      const invite = await bot.createChatInviteLink(chatId, {
+        member_limit: 1
+      });
 
-      return message.reply(`✅ | Invite sent to ${userId}`);
+      try {
+        // 🔥 try DM
+        await bot.sendMessage(
+          userId,
+          `📩 Join Group:\n${invite.invite_link}`
+        );
+
+        return bot.sendMessage(
+          chatId,
+          `✅ | Invite sent to ${userId}`
+        );
+
+      } catch (dmError) {
+        // ❌ fallback
+        return bot.sendMessage(
+          chatId,
+          `⚠️ | Cannot DM user\n\n🔗 Invite Link:\n${invite.invite_link}`
+        );
+      }
 
     } catch (err) {
       console.error(err);
-      return message.reply("❌ | Failed to send invite");
+
+      return bot.sendMessage(
+        chatId,
+        "❌ | Bot must be admin with invite permission"
+      );
     }
   }
 };
