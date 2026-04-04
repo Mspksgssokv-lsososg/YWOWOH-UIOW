@@ -1,73 +1,98 @@
 const fs = require("fs");
-const configPath = "../../config.json";
+const path = require("path");
+
+const configPath = path.join(__dirname, "../../config.json");
+
+// 🔥 load config
 let config = require(configPath);
+
+// ✅ ensure arrays
+if (!Array.isArray(config.adminBot)) config.adminBot = [];
+if (!Array.isArray(config.botOperator)) config.botOperator = [];
 
 module.exports.config = {
   name: "admins",
   aliases: ["access", "operator"],
-  version: "1.0.0",
-  role: 3, 
+  version: "3.0.0",
+  role: 3,
   author: "SK-SIDDIK-KHAN",
-  description: "Manage bot admins and operators.",
+  description: "Smart admin manager",
   usePrefix: true,
-  guide: "{pn} [add|remove|list] [admin|operator] [user_id]",
   category: "Admin",
   countDown: 5,
 };
 
-module.exports.run = async ({ message, args }) => {
+module.exports.run = async ({ message, args, msg }) => {
   try {
-    if (args.length < 2) {
+    const action = args[0]?.toLowerCase();
+    const roleType = args[1]?.toLowerCase();
+
+    if (!action || !roleType) {
       return message.reply(
-        "Usage:\n`/admins [add|remove|list] [admin|operator] [user_id]`\nExamples:\n`/admins add admin 123456789`\n`/admins remove operator 987654321`\n`/admins list admin`"
+        "Usage:\n/admins [add|remove|list] [admin|operator]"
       );
     }
 
-    const action = args[0].toLowerCase();
-    const roleType = args[1].toLowerCase();
-    const userId = parseInt(args[2]);
-let targetList;
-    if (roleType === "admin") {
-      targetList = config.adminBot;
-    } else if (roleType === "operator") {
-      targetList = config.botOperator;
-    } else {
-      return message.reply("Invalid role type. Use `admin` or `operator`.");
+    let targetKey;
+    if (roleType === "admin") targetKey = "adminBot";
+    else if (roleType === "operator") targetKey = "botOperator";
+    else return message.reply("Use admin / operator");
+
+    let targetList = config[targetKey];
+
+    // 🔥 GET USER ID SYSTEM
+    let userId;
+
+    // 1️⃣ reply system
+    if (msg.reply_to_message) {
+      userId = msg.reply_to_message.from.id;
+    }
+
+    // 2️⃣ args id
+    else if (args[2] && !isNaN(args[2])) {
+      userId = parseInt(args[2]);
+    }
+
+    // 3️⃣ fallback নিজে
+    else {
+      userId = msg.from.id;
     }
 
     switch (action) {
       case "add":
-        if (isNaN(userId)) {
-          return message.reply("Please provide a valid user ID.");
-        }
         if (targetList.includes(userId)) {
-          return message.reply(`User ID ${userId} is already in the ${roleType} list.`);
+          return message.reply("Already exists");
         }
+
         targetList.push(userId);
         saveConfig();
-        return message.reply(`✅ User ID ${userId} has been added to the ${roleType} list.`);
+
+        return message.reply(`✅ Added ${userId} to ${roleType}`);
 
       case "remove":
-        if (isNaN(userId)) {
-          return message.reply("Please provide a valid user ID.");
-        }
         if (!targetList.includes(userId)) {
-          return message.reply(`User ID ${userId} is not in the ${roleType} list.`);
+          return message.reply("Not found");
         }
-        config[roleType === "admin" ? "adminBot" : "botOperator"] = targetList.filter((id) => id !== userId);
+
+        config[targetKey] = targetList.filter(id => id !== userId);
         saveConfig();
-        return message.reply(`✅ User ID ${userId} has been removed from the ${roleType} list.`);
+
+        return message.reply(`✅ Removed ${userId} from ${roleType}`);
 
       case "list":
-        const list = targetList.length ? targetList.join(", ") : "No users in the list.";
-        return message.reply(`🔹 ${roleType === "admin" ? "Admin" : "Operator"} List: ${list}`);
+        return message.reply(
+          targetList.length
+            ? `📋 ${roleType.toUpperCase()} LIST\n━━━━━━━━━━━━━━\n${targetList.join("\n")}`
+            : "Empty list"
+        );
 
       default:
-        return message.reply("Invalid action. Use `add`, `remove`, or `list`.");
+        return message.reply("Use add / remove / list");
     }
-  } catch (error) {
-    console.error(`Error managing admins or operators: ${error.message}`);
-    message.reply(`Error: ${error.message}`);
+
+  } catch (err) {
+    console.error(err);
+    message.reply("Error occurred");
   }
 };
 
