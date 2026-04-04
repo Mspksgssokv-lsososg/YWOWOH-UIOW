@@ -3,10 +3,8 @@ const path = require("path");
 
 const configPath = path.join(__dirname, "../../config.json");
 
-// 🔥 load config
 let config = require(configPath);
 
-// ✅ ensure arrays
 if (!Array.isArray(config.adminBot)) config.adminBot = [];
 if (!Array.isArray(config.botOperator)) config.botOperator = [];
 
@@ -40,20 +38,16 @@ module.exports.run = async ({ message, args, msg }) => {
 
     let targetList = config[targetKey];
 
-    // 🔥 GET USER ID SYSTEM
     let userId;
 
-    // 1️⃣ reply system
     if (msg.reply_to_message) {
       userId = msg.reply_to_message.from.id;
     }
 
-    // 2️⃣ args id
     else if (args[2] && !isNaN(args[2])) {
       userId = parseInt(args[2]);
     }
 
-    // 3️⃣ fallback নিজে
     else {
       userId = msg.from.id;
     }
