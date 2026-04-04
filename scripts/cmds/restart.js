@@ -1,41 +1,43 @@
 module.exports = {
   config: {
     name: "restart",
-    aliases: [],
-    version: "2.1.0",
+    version: "3.0.0",
     role: 2,
     author: "SK-SIDDIK-KHAN",
-    description: "Soft restart with auto unsend.",
+    description: "Smart restart with clean unsend timing",
     usePrefix: true,
     category: "admin",
     cooldown: 5
   },
- 
-  onStart: async function ({ message, event, bot }) {
+
+  onStart: async ({ message, event, bot }) => {
     try {
       const start = Date.now();
- 
-      const msg = await message.reply("🔄 | Restarting the bot...");
- 
+
+      const sentMsg = await message.reply("🔄 | Restarting the bot...");
+
+      const totalDelay = 2000; 
+      const unsendBefore = 1000; 
+
+      setTimeout(async () => {
+        try {
+          await bot.deleteMessage(
+            event.chat.id,
+            sentMsg.message_id
+          );
+        } catch {}
+      }, totalDelay - unsendBefore);
+
       setTimeout(async () => {
         const elapsed = ((Date.now() - start) / 1000).toFixed(2);
- 
-        try {
-          if (msg?.message_id) {
-            await message.unsend(msg.message_id);
-          } else {
-            await bot.deleteMessage(event.chat.id, msg.message_id);
-          }
-        } catch {}
- 
+
         await message.reply(
           `✅ | Bot restarted\n⏰ | Time: ${elapsed}s`
         );
-      }, 1500);
- 
-    } catch {
+      }, totalDelay);
+
+    } catch (err) {
       return message.reply("❌ | Restart failed");
     }
   }
 };
- 
