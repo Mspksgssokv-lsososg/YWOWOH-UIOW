@@ -20,15 +20,12 @@ module.exports = {
         return message.reply("Usage: /file <command_name>");
       }
 
-      // 👉 file path
       const filePath = path.join(__dirname, `${name}.js`);
 
-      // ❌ not found
       if (!fs.existsSync(filePath)) {
         return message.reply("❌ | File not found");
       }
 
-      // ✅ send file
       await bot.sendDocument(msg.chat.id, filePath, {
         caption: `📂 ${name}.js`
       });
