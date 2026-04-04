@@ -1,27 +1,41 @@
-const fs = require('fs');
+const fs = require("fs");
+const path = require("path");
 
 module.exports = {
   config: {
     name: "file",
     author: "SK-SIDDIK-KHAN",
-    description: "Send the command code as a file",
+    description: "Send command file",
     category: "utility",
-    usage: "file <command_name>",
+    usage: "file <name>",
     usePrefix: true,
     role: 2,
   },
-  onStart: async ({ args, message }) =>{
-    if (!args) {
-      return message.reply("type: !file <command_name>");
-    }
 
-    const commandName = args[0];
-    const filePath = `${__dirname}/${commandName}.js`;
+  onStart: async ({ args, bot, msg, message }) => {
+    try {
+      const name = args[0];
 
-    if (!fs.existsSync(filePath)) {
-      return message.reply(`Command "${commandName}" not found.`);
+      if (!name) {
+        return message.reply("Usage: /file <command_name>");
+      }
+
+      // 👉 file path
+      const filePath = path.join(__dirname, `${name}.js`);
+
+      // ❌ not found
+      if (!fs.existsSync(filePath)) {
+        return message.reply("❌ | File not found");
+      }
+
+      // ✅ send file
+      await bot.sendDocument(msg.chat.id, filePath, {
+        caption: `📂 ${name}.js`
+      });
+
+    } catch (err) {
+      console.error(err);
+      message.reply("❌ | Error sending file");
     }
-    const fileContent = fs.readFileSync(filePath, 'utf8');
-    await message.code(fileContent);
   }
 };
