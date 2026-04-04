@@ -1,9 +1,12 @@
+const fs = require("fs");
+const path = require("path");
+
 module.exports = {
   config: {
     name: "bc",
     aliases: ["broadcast"],
-    description: "Send a broadcast message to all users and groups",
-    version: "1.0.2",
+    description: "Send broadcast message",
+    version: "4.0.0",
     author: "SK-SIDDIK-KHAN",
     category: "admin",
     role: 2,
@@ -13,9 +16,19 @@ module.exports = {
 
   run: async ({ bot, msg, args, message }) => {
     const chatId = msg.chat.id;
+    const userId = msg.from.id;
 
-    const fs = require("fs");
-    const path = require("path");
+    const senderName =
+      msg.from.first_name +
+      (msg.from.last_name ? " " + msg.from.last_name : "");
+
+    const username = msg.from.username || "none";
+
+    const currentTime = new Date().toLocaleString("en-BD", {
+      timeZone: "Asia/Dhaka"
+    });
+
+    const copyrightMark = "© Powered by SIDDIK BOT";
 
     const threadFile = path.join(process.cwd(), "threads.json");
 
@@ -28,42 +41,70 @@ module.exports = {
       threadIDs = JSON.parse(fs.readFileSync(threadFile));
     } catch {
       threadIDs = [];
-      fs.writeFileSync(threadFile, "[]");
     }
 
     if (!threadIDs.includes(chatId)) {
       threadIDs.push(chatId);
-      fs.writeFileSync(threadFile, JSON.stringify(threadIDs));
+      fs.writeFileSync(threadFile, JSON.stringify(threadIDs, null, 2));
     }
 
     const text =
       args.join(" ") ||
-      (msg.reply_to_message?.text || "");
+      msg.reply_to_message?.text ||
+      "";
 
-    if (!text)
-      return message.reply("❌ | Please provide a message");
+    if (!text) return message.reply("❌ | Please provide a message");
 
     if (!threadIDs.length)
       return message.reply("❌ | No users/groups found");
 
-    await message.reply("📤 | Broadcasting...");
+    const statusMsg = await message.reply("📤 | Broadcasting...");
+
+    setTimeout(async () => {
+      try {
+        await bot.deleteMessage(chatId, statusMsg.message_id);
+      } catch {}
+    }, 3000);
 
     let success = 0;
     let fail = 0;
+
+    const formatted = `
+📢 <b>Broadcast Message</b> 📢
+━━━━━━━━━━━━━━━━━━━━━━
+<b>Message:</b> ${text}
+━━━━━━━━━━━━━━━━━━━━━━
+⏰ <b>Time:</b> ${currentTime}
+━━━━━━━━━━ ❖ ━━━━━━━━━━
+👤 <b>Sender Name:</b> ${senderName}
+🔗 <b>Username:</b> @${username}
+🆔 <b>UserID:</b> ${userId}
+━━━━━━━━━━ ❖ ━━━━━━━━━━
+${copyrightMark}
+`;
 
     for (const id of threadIDs) {
       try {
         if (String(id) === String(chatId)) continue;
 
-        await bot.sendMessage(id, `📢 Broadcast\n\n${text}`);
+        await bot.sendMessage(id, formatted, {
+          parse_mode: "HTML"
+        });
+
         success++;
       } catch {
         fail++;
       }
     }
 
-    return message.reply(
-      `✅ | Done\n👤 Success: ${success}\n❌ Fail: ${fail}`
+    const doneMsg = await message.reply(
+      `✅ | Broadcast Completed\n━━━━━━━━━━━━━━━━━━\n👤 Success: ${success}\n❌ Failed: ${fail}`
     );
+
+    setTimeout(async () => {
+      try {
+        await bot.deleteMessage(chatId, doneMsg.message_id);
+      } catch {}
+    }, 5000);
   }
 };
