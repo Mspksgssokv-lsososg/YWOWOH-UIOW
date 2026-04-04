@@ -112,27 +112,37 @@ if (global.adminOnly && !isBotAdmin) {
     const replyMsgId = msg.reply_to_message?.message_id;
  
     if (replyMsgId) {
-      const data =
-        global.functions.reply.get(replyMsgId) ||
-        global.functions.onReply.get(replyMsgId);
- 
-      if (data) {
-        const command = global.commands.get(data.commandName);
- 
-        if (command?.onReply || command?.reply) {
-          return await (command.onReply || command.reply)({
-            bot,
-            event: msg,
-            msg,
-            message,
-            args: text.split(" "),
-            Reply: data,
-            usersData,
-            threadsData
-          });
-        }
-      }
+  const data =
+    global.functions.reply.get(replyMsgId) ||
+    global.functions.onReply.get(replyMsgId);
+
+  if (data) {
+    const command = global.commands.get(data.commandName);
+    const role = command?.config?.role ?? 0;
+
+    if (role === 2 && !isBotAdmin)
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐛𝐨𝐭'𝐬 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
+
+    if (role === 1 && !isBotAdmin && !isAdmin)
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐠𝐫𝐨𝐮𝐩 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
+
+    if (role === 3 && !isBotAdmin && !isOperator)
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
+
+    if (command?.onReply || command?.reply) {
+      return await (command.onReply || command.reply)({
+        bot,
+        event: msg,
+        msg,
+        message,
+        args: text.split(" "),
+        Reply: data,
+        usersData,
+        threadsData
+      });
     }
+  }
+}
  
     for (let cmd of global.commands.values()) {
       try {
@@ -293,7 +303,7 @@ DEFINITELY BY SK SIDDIK ━━━━━━━━━━♡
 ╚══════╝╚═╝╚═════╝ ╚═════╝ ╚═╝╚═╝  ╚═╝    ╚═════╝  ╚═════╝    ╚═╝   
                                                                     
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┣➤🤖 SIDDIK BOT SYSTEM READY
+┣━━━━━━━ [ SIDDIK BOT SYSTEM READY ] ━━━━━━━
 ┣━━━━━━━━━━━━━━━━━━━
 ┣➤Name   : ${config.botName}
 ┣━━━━━━━━━━━━━━━━━━━
@@ -301,4 +311,9 @@ DEFINITELY BY SK SIDDIK ━━━━━━━━━━♡
 ┣━━━━━━━━━━━━━━━━━━━
 ┣➤Owner  : ${config.owner}
 ┗━━━━━━━━━━━━━━━━𝗘𝗡𝗝𝗢𝗬━━━━━━━━━━━━━┛
+ 
+Msg Enjoy Siddik Bot Here🤙
+ 
+━━━━━━━ [ SK SIDDIK PROJECT VERSION 4.0.0 ] ━━━━━━━
 `);
+ 
