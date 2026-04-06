@@ -14,6 +14,22 @@ const threadsData = require("./database/threads");
  
 const token = process.env.TELEGRAM_BOT_TOKEN || config.token;
 const bot = new TelegramBot(token, { polling: true });
+
+const logFile = path.join(process.cwd(), "error.log");
+
+function logError(type, err, context = "UNKNOWN") {
+  const time = new Date().toISOString();
+  const message = `[${time}] [${type}] ${context}\n${err.stack || err}\n\n`;
+  console.log(message);
+  fs.appendFileSync(logFile, message, "utf8");
+}
+
+function logInfo(msg) {
+  const time = new Date().toISOString();
+  const message = `[${time}] [INFO] ${msg}\n`;
+  console.log(message);
+  fs.appendFileSync(logFile, message, "utf8");
+}
  
 global.commands = new Map();
 global.events = new Map();
@@ -45,7 +61,7 @@ try {
 
   fs.writeFileSync(configPath, JSON.stringify(tempConfig, null, 2));
 } catch (e) {
-  console.log("❌ Config Reset Error:", e);
+  logError("CONFIG", e);
 }
  
 const threadFile = path.join(process.cwd(), "threads.json");
@@ -141,7 +157,9 @@ let isAdmin = false;
       try {
         const member = await bot.getChatMember(chatId, userId);
         isAdmin = ["administrator", "creator"].includes(member.status);
-      } catch {}
+      } catch (e) {
+        logError("GET_CHAT_MEMBER", e);
+      }
     }
  
     const replyMsgId = msg.reply_to_message?.message_id;
@@ -189,7 +207,7 @@ let isAdmin = false;
           await cmd.noPrefix({ bot, event: msg, msg, message, usersData, threadsData });
         }
       } catch (e) {
-        console.log("❌ Event Error:", e);
+        logError("EVENT", e);
       }
     }
  
@@ -208,7 +226,7 @@ let isAdmin = false;
           });
         }
       } catch (e) {
-        console.log("❌ onMessage Error:", e);
+        logError("ON_MESSAGE", e);
       }
     }
  
@@ -229,6 +247,8 @@ let isAdmin = false;
       );
  
     if (!command) return;
+
+    logInfo(`User ${userId} used command: ${commandName}`);
  
     if (command.config?.usePrefix === true && !text.startsWith(prefix)) return;
  
@@ -264,7 +284,7 @@ let isAdmin = false;
       return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐠𝐫𝐨𝐮𝐩 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
  
     if (role === 3 && !isBotAdmin && !isOperator)
-      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐚𝐧𝐝");
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
  
     try {
       if (command.onStart)
@@ -277,12 +297,12 @@ let isAdmin = false;
         await command.start({ bot, event: msg, msg, args, message, usersData, threadsData });
  
     } catch (err) {
-      console.log(`❌ ${commandName}:`, err);
-      message.err(err);
+      logError("COMMAND", err, commandName);
+      message.reply("❌ | 𝐂𝐨𝐦𝐦𝐚𝐧𝐝 𝐞𝐫𝐫𝐨𝐫 𝐨𝐜𝐜𝐮𝐫𝐫𝐞𝐝");
     }
  
   } catch (err) {
-    console.log("❌ MAIN ERROR:", err);
+    logError("MAIN", err);
   }
 });
  
@@ -315,16 +335,16 @@ bot.on("callback_query", async (query) => {
     }
  
   } catch (err) {
-    console.log("❌ CALLBACK ERROR:", err);
+    logError("CALLBACK", err);
   }
 });
  
 process.on("unhandledRejection", (reason) => {
-  console.error("💥 UNHANDLED REJECTION:", reason);
+  logError("UNHANDLED REJECTION", reason);
 });
  
 process.on("uncaughtException", (err) => {
-  console.error("🔥 UNCAUGHT EXCEPTION:", err);
+  logError("UNCAUGHT EXCEPTION", err);
 });
  
 console.log(`
@@ -351,4 +371,3 @@ Msg Enjoy Siddik Bot Here🤙
  
 ━━━━━━━ [ SK SIDDIK PROJECT VERSION 4.0.0 ] ━━━━━━━
 `);
- 
