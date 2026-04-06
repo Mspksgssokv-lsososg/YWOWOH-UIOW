@@ -25,11 +25,10 @@ module.exports = {
 
       global.antichange[chatId] = {
         enabled: true,
-        title: chat.title || "Protected Name",
-        photo: chat.photo?.big_file_id || null
+        title: chat.title || "Protected Name"
       };
 
-      return message.reply("✅ | Anti-change ON (saved current name & photo)");
+      return message.reply("✅ | Anti-change ON (name protected)");
     }
 
     if (state === "off") {
@@ -46,24 +45,17 @@ module.exports = {
     const data = global.antichange[chatId];
 
     try {
-      // Name change detect
       if (msg.new_chat_title && data.enabled) {
         await bot.setChatTitle(chatId, data.title);
-        bot.sendMessage(chatId, "⚠️ | Name change blocked & restored");
+        bot.sendMessage(chatId, "⚠️ | Name change blocked");
       }
 
-      // Photo change detect
       if (msg.new_chat_photo && data.enabled) {
-        if (data.photo) {
-          await bot.setChatPhoto(chatId, data.photo);
-          bot.sendMessage(chatId, "⚠️ | Photo change blocked & restored");
-        } else {
-          bot.sendMessage(chatId, "⚠️ | Photo changed (no backup found)");
-        }
+        bot.sendMessage(chatId, "⚠️ | Photo change detected (Telegram limitation)");
       }
 
     } catch (e) {
-      console.log("Antichange Error:", e);
+      console.log(e);
     }
   }
 };
