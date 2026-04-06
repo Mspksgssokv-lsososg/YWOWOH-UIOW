@@ -28,6 +28,7 @@ global.functions = {
 global.cooldowns = new Map();
  
 loadScripts(bot);
+
 const configPath = path.join(process.cwd(), "config.json");
 
 try {
@@ -94,7 +95,9 @@ bot.on("message", async (msg) => {
  
     const chatId = msg.chat.id;
     const userId = msg.from.id;
-    const isBotAdmin = (config.admins || []).includes(userId); 
+
+    const isBotAdmin = (config.admins || []).map(String).includes(String(userId)); 
+    const isOperator = (config.botOperator || []).map(String).includes(String(userId));
     
     if (isBanned(userId)) {
   return bot.sendMessage(
@@ -151,16 +154,16 @@ let isAdmin = false;
   if (data) {
     const command = global.commands.get(data.commandName);
     const role = command?.config?.role ?? 0;
-
+ 
     if (role === 2 && !isBotAdmin)
       return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐛𝐨𝐭'𝐬 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
-
+ 
     if (role === 1 && !isBotAdmin && !isAdmin)
       return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐠𝐫𝐨𝐮𝐩 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
-
+ 
     if (role === 3 && !isBotAdmin && !isOperator)
       return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
-
+ 
     if (command?.onReply || command?.reply) {
       return await (command.onReply || command.reply)({
         bot,
@@ -261,7 +264,7 @@ let isAdmin = false;
       return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐠𝐫𝐨𝐮𝐩 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
  
     if (role === 3 && !isBotAdmin && !isOperator)
-      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐚𝐧𝐝");
  
     try {
       if (command.onStart)
