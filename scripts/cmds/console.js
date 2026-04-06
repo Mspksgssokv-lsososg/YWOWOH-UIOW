@@ -12,7 +12,9 @@ module.exports = {
     category: "INFO"
   },
  
-  onChat: async function ({ msg }) {
+  onChat: async function ({ event }) {
+
+    const msg = event; 
  
     if (!msg || !msg.chat || !msg.from) return;
  

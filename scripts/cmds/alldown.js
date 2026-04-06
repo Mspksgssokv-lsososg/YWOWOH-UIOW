@@ -13,66 +13,57 @@ module.exports = {
   onMessage: async ({ bot, chatId, message, messageId }) => {
     try {
       const text = message?.text;
+      if (!text) return;
 
-      if (!text || !text.includes("http")) return;
+      const urlMatch = text.match(/https?:\/\/[^\s]+/i);
+      if (!urlMatch) return;
 
-      const linkMatch = text.match(/https?:\/\/[^\s]+/);
-      if (!linkMatch) return;
+      const url = urlMatch[0];
 
-      const link = linkMatch[0];
+      const waitMsg = await bot.sendMessage(chatId, "Downloading video...", {
+        reply_to_message_id: messageId,
+      });
 
-      const waitMsg = await bot.sendMessage(
-        chatId,
-        "⏳ 𝗗𝗢𝗪𝗡𝗟𝗢𝗔𝗗𝗜𝗡𝗚",
-        { reply_to_message_id: messageId }
-      );
+      const response = await alldown(url);
+      const data = response?.data;
 
-      const res = await alldown(link);
+      if (!data) throw new Error("Invalid API response");
 
-      if (!res || !res.data) {
-        throw new Error("Invalid API response");
-      }
-
-      const data = res.data;
       const videoUrl = data.high || data.low || data.url;
+      if (!videoUrl) throw new Error("No downloadable video found");
 
-      if (!videoUrl) {
-        throw new Error("No video found");
-      }
+      const title = data.title || "Untitled";
 
-      const title = data.title || "No Title";
-
-      const vid = await axios.get(videoUrl, {
+      const videoStream = await axios.get(videoUrl, {
         responseType: "stream",
         timeout: 60000,
       });
 
+      const caption = `╭━━〔 DOWNLOADER 〕━━╮
+┃ Title: ${title}
+┃ Status: Completed
+╰━━━〔 SIDDIK BOT 〕━━━╯`;
+
       const replyMarkup = {
         inline_keyboard: [
-          [{ text: "📞 CONTACT ADMIN", url: "https://t.me/busy1here" }],
+          [{ text: "Contact Admin", url: "https://t.me/busy1here" }],
         ],
       };
 
-      const caption = `
-╭━━〔 DOWNLOADER 〕━━╮
-┃ 🎬 Title : ${title}
-┃ ⚡ Status : Completed ✅
-╰━━━〔 🤖 SIDDIK BOT 〕━━━╯`;
-
       await bot.deleteMessage(chatId, waitMsg.message_id).catch(() => {});
 
-      await bot.sendVideo(chatId, vid.data, {
+      await bot.sendVideo(chatId, videoStream.data, {
         caption,
         reply_to_message_id: messageId,
         reply_markup: replyMarkup,
       });
 
-    } catch (err) {
-      console.error("AutoDownload Error:", err);
+    } catch (error) {
+      console.error("AutoDownload Error:", error);
 
-      bot.sendMessage(
+      await bot.sendMessage(
         chatId,
-        `❌ Download Failed\n${err.message || ""}`
+        `Download Failed\n${error.message || "Unknown error"}`
       );
     }
   },
