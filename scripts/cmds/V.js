@@ -4,7 +4,7 @@ const moment = require('moment-timezone');
 module.exports.config = {
     name: "uptime",
     credits: "MOHAMMAD-BADOL",
-    aliases: ["up"],
+    aliases: ["upv"],
     prefix: true,
     permission: 0,
     description: "Display bot and system status.",
