@@ -2,73 +2,59 @@ module.exports = {
   config: {
     name: "spamkick",
     version: "1.0",
-    aliases: [],
     author: "Dipto",
     cooldown: 3,
-    role: 1, // group admin can use
-    description: "Automatically kicks spammers from the group",
+    role: 1,
+    description: "Auto kick spammer",
     commandCategory: "moderation",
-    guide: "Auto detect spam and kick user",
   },
 
-  onChat: async function ({ bot, message, event, threadsData }) {
+  onChat: async function ({ api, event, threadsData }) {
     try {
-      const chatId = event.chat.id;
-      const userId = event.from.id;
+      const threadID = event.threadID;
+      const userID = event.senderID;
 
-      // ❌ ignore bot নিজে
-      if (event.from.is_bot) return;
+      if (!userID) return;
 
-      // ================= THREAD SAFE =================
-      let thread = await threadsData.get(chatId);
-      if (!thread) thread = {};
+      let thread = await threadsData.get(threadID) || {};
 
       if (!thread.settings) thread.settings = {};
-      if (!thread.settings.spamDetection)
-        thread.settings.spamDetection = {};
+      if (!thread.settings.spam) thread.settings.spam = {};
 
-      const currentTime = Date.now();
+      const now = Date.now();
 
-      let userMessages =
-        thread.settings.spamDetection[userId] || [];
+      let userMsgs = thread.settings.spam[userID] || [];
 
-      // ================= SAVE MESSAGE TIME =================
-      userMessages.push(currentTime);
+      userMsgs.push(now);
 
-      // last 10 sec messages only
-      const recentMessages = userMessages.filter(
-        (time) => currentTime - time < 10000
-      );
+      // last 10 sec
+      userMsgs = userMsgs.filter(t => now - t < 10000);
 
-      thread.settings.spamDetection[userId] = recentMessages;
+      thread.settings.spam[userID] = userMsgs;
 
-      // ================= SPAM DETECT =================
-      if (recentMessages.length > 5) {
+      // spam detect
+      if (userMsgs.length >= 6) {
         try {
-          console.log(`🚨 Spam detected: ${userId}`);
+          await api.removeUserFromGroup(userID, threadID);
 
-          await bot.banChatMember(chatId, userId);
-
-          await message.reply(
-            `⚠️ ${event.from.first_name} has been kicked for spamming!`
+          api.sendMessage(
+            "⚠️ User kicked for spamming!",
+            threadID
           );
 
-          // reset after kick
-          thread.settings.spamDetection[userId] = [];
-
-        } catch (err) {
-          console.log("❌ Kick Error:", err);
-
-          await message.reply(
-            "❌ Failed to kick user (Bot needs admin permission)"
+          thread.settings.spam[userID] = [];
+        } catch (e) {
+          api.sendMessage(
+            "❌ Bot needs admin permission",
+            threadID
           );
         }
       }
 
-      await threadsData.set(chatId, thread);
+      await threadsData.set(threadID, thread);
 
-    } catch (err) {
-      console.log("❌ SPAMKICK ERROR:", err);
+    } catch (e) {
+      console.log(e);
     }
   },
 };
