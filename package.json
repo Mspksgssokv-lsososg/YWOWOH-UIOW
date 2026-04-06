@@ -7,12 +7,17 @@
     "start": "node index.js",
     "test": "echo \"no test specified\" && exit 1"
   },
-  "keywords": ["telegram", "bot", "nodejs"],
+  "keywords": [
+    "telegram",
+    "bot",
+    "nodejs"
+  ],
   "author": "SK-SIDDIK-KHAN",
   "license": "MIT",
   "dependencies": {
-    "axios": "^1.8.2",
+    "axios": "^1.14.0",
     "boxen": "^8.0.1",
+    "canvas": "^2.11.2",
     "chalk": "^4.1.2",
     "cheerio": "^1.0.0",
     "chokidar": "^3.6.0",
@@ -20,6 +25,7 @@
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "express": "^4.21.2",
+    "ffmpeg-static": "^5.3.0",
     "figlet": "^1.7.0",
     "file-type": "^16.5.3",
     "form-data": "^4.0.0",
@@ -36,6 +42,7 @@
     "open-graph": "^0.2.6",
     "request": "^2.88.2",
     "tinyurl": "^1.1.7",
+    "uuid": "^13.0.0",
     "youtube-search-api": "^1.2.2"
   }
 }
