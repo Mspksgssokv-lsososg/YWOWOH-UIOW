@@ -28,6 +28,25 @@ global.functions = {
 global.cooldowns = new Map();
  
 loadScripts(bot);
+
+const configPath = path.join(process.cwd(), "config.json");
+
+try {
+  const tempConfig = JSON.parse(fs.readFileSync(configPath));
+
+  if (!tempConfig.white_list_ID) {
+    tempConfig.white_list_ID = {
+      enable: false,
+      IDS: []
+    };
+  }
+
+  tempConfig.white_list_ID.enable = false;
+
+  fs.writeFileSync(configPath, JSON.stringify(tempConfig, null, 2));
+} catch (e) {
+  console.log("❌ Config Reset Error:", e);
+}
  
 const threadFile = path.join(process.cwd(), "threads.json");
 const banFile = path.join(process.cwd(), "banned.json");
@@ -76,7 +95,9 @@ bot.on("message", async (msg) => {
  
     const chatId = msg.chat.id;
     const userId = msg.from.id;
-    const isBotAdmin = (config.admins || []).includes(userId); 
+
+    const isBotAdmin = (config.admins || []).map(String).includes(String(userId)); 
+    const isOperator = (config.botOperator || []).map(String).includes(String(userId));
     
     if (isBanned(userId)) {
   return bot.sendMessage(
@@ -84,24 +105,38 @@ bot.on("message", async (msg) => {
     "🚫 | 𝐘𝐨𝐮 𝐡𝐚𝐯𝐞 𝐛𝐞𝐞𝐧 𝐛𝐚𝐧𝐧𝐞𝐝 𝐟𝐫𝐨𝐦 𝐮𝐬𝐢𝐧𝐠 𝐭𝐡𝐞 𝐛𝐨𝐭"
   );
 }
+
 if (global.adminOnly && !isBotAdmin) {
   return; 
 }
- 
-    saveThread(chatId);
- 
-    const isOperator = (config.botOperator || []).includes(userId);
- 
-    if (config.ignore_list_ID?.enable &&
-        config.ignore_list_ID.IDS.includes(userId)) return;
- 
-    if (config.white_list_ID?.enable &&
-        !config.white_list_ID.IDS.includes(userId)) return;
- 
-    if (config.white_list_group?.enable &&
-        !config.white_list_group.groups.includes(chatId)) return;
- 
-    let isAdmin = false;
+
+saveThread(chatId);
+
+if (
+  config.ignore_list_ID?.enable &&
+  (config.ignore_list_ID.IDS || []).map(String).includes(String(userId))
+) return;
+
+const currentConfig = JSON.parse(fs.readFileSync(configPath));
+
+if (
+  currentConfig.white_list_ID?.enable === true &&
+  !isBotAdmin &&
+  !isOperator &&
+  !(currentConfig.white_list_ID.IDS || []).map(String).includes(String(userId))
+) {
+  return bot.sendMessage(
+    chatId,
+    "🚫 | 𝐘𝐨𝐮 𝐚𝐫𝐞 𝐧𝐨𝐭 𝐰𝐡𝐢𝐭𝐞𝐥𝐢𝐬𝐭𝐞𝐝"
+  );
+}
+
+if (
+  config.white_list_group?.enable &&
+  !(config.white_list_group.groups || []).includes(chatId)
+) return;
+
+let isAdmin = false;
     if (msg.chat.type !== "private") {
       try {
         const member = await bot.getChatMember(chatId, userId);
@@ -115,20 +150,20 @@ if (global.adminOnly && !isBotAdmin) {
   const data =
     global.functions.reply.get(replyMsgId) ||
     global.functions.onReply.get(replyMsgId);
-
+ 
   if (data) {
     const command = global.commands.get(data.commandName);
     const role = command?.config?.role ?? 0;
-
+ 
     if (role === 2 && !isBotAdmin)
       return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐛𝐨𝐭'𝐬 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
-
+ 
     if (role === 1 && !isBotAdmin && !isAdmin)
       return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐠𝐫𝐨𝐮𝐩 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
-
+ 
     if (role === 3 && !isBotAdmin && !isOperator)
       return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
-
+ 
     if (command?.onReply || command?.reply) {
       return await (command.onReply || command.reply)({
         bot,
@@ -229,7 +264,7 @@ if (global.adminOnly && !isBotAdmin) {
       return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐠𝐫𝐨𝐮𝐩 𝐚𝐝𝐦𝐢𝐧 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
  
     if (role === 3 && !isBotAdmin && !isOperator)
-      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐦𝐚𝐧𝐝");
+      return message.reply("👽🔖  | 𝐎𝐧𝐥𝐲 𝐎𝐩𝐞𝐫𝐚𝐭𝐨𝐫 𝐜𝐚𝐧 𝐮𝐬𝐞 𝐭𝐡𝐞 𝐜𝐨𝐦𝐚𝐧𝐝");
  
     try {
       if (command.onStart)
