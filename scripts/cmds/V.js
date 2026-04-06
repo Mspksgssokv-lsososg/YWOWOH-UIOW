@@ -3,58 +3,54 @@ module.exports = {
     name: "spamkick",
     version: "1.0",
     author: "Dipto",
-    cooldown: 3,
     role: 1,
     description: "Auto kick spammer",
-    commandCategory: "moderation",
   },
 
-  onChat: async function ({ api, event, threadsData }) {
+  handleEvent: async function ({ api, event, threadsData }) {
     try {
       const threadID = event.threadID;
       const userID = event.senderID;
 
-      if (!userID) return;
+      if (!userID || userID == api.getCurrentUserID()) return;
 
-      let thread = await threadsData.get(threadID) || {};
+      let data = await threadsData.get(threadID) || {};
 
-      if (!thread.settings) thread.settings = {};
-      if (!thread.settings.spam) thread.settings.spam = {};
+      if (!data.spam) data.spam = {};
 
       const now = Date.now();
 
-      let userMsgs = thread.settings.spam[userID] || [];
+      let msgs = data.spam[userID] || [];
 
-      userMsgs.push(now);
+      msgs.push(now);
 
-      // last 10 sec
-      userMsgs = userMsgs.filter(t => now - t < 10000);
+      msgs = msgs.filter(t => now - t < 10000);
 
-      thread.settings.spam[userID] = userMsgs;
+      data.spam[userID] = msgs;
 
-      // spam detect
-      if (userMsgs.length >= 6) {
+      // 🔥 spam detect
+      if (msgs.length >= 2) {
         try {
           await api.removeUserFromGroup(userID, threadID);
 
           api.sendMessage(
-            "⚠️ User kicked for spamming!",
+            "🚫 Spammer kicked!",
             threadID
           );
 
-          thread.settings.spam[userID] = [];
+          data.spam[userID] = [];
         } catch (e) {
           api.sendMessage(
-            "❌ Bot needs admin permission",
+            "❌ Bot admin na, kick korte parchi na",
             threadID
           );
         }
       }
 
-      await threadsData.set(threadID, thread);
+      await threadsData.set(threadID, data);
 
     } catch (e) {
       console.log(e);
     }
-  },
+  }
 };
